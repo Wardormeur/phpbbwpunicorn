@@ -1,0 +1,36 @@
+{
+    "name": "wardormeur/phpbbwpunicorn",
+    "type": "phpbb-extension",
+    "description": "Allows functionnalities to be shared between wordpress & phpbb 3.1",
+    "homepage": "",
+    "version": "0.0.1",
+    "time": "2015-02-09",
+    "keywords": [
+        "phpbb",
+        "extension",
+        "integration",
+        "wordpress",
+        "phpbbwpunicorn",
+        "bridge"
+    ],
+    "license": "GPL-2.0",
+    "authors": [
+        {
+            "name": "Guillaume Feliciano",
+            "homepage": "",
+            "email": "",
+            "role": ""
+        }
+    ],
+    "require": {
+        "php": ">=5.3.3"
+    },
+    "require-dev": {
+        "phpbb/epv": "dev-master"
+    },
+    "extra": {
+        "display-name": "PhpBBWP Unicorn",
+        "soft-require": {
+            "phpbb/phpbb": ">=3.1.2,<3.2.*@dev"
+        }    }
+}

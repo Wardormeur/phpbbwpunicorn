@@ -1,0 +1,27 @@
+services:
+    wardormeur.phpbbwpunicorn.user:
+        class: wardormeur\phpbbwpunicorn\user
+        arguments:
+            - @auth
+            - @config
+            - @dbal.conn
+            - @request
+            - @user
+            - %core.php_ext%
+            - %core.root_path%
+
+
+    wardormeur.phpbbwpunicorn.listener:
+        class: wardormeur\phpbbwpunicorn\event\createuser_listener
+        arguments:
+            - @template
+            - @user
+            - @dbal.conn
+            - @auth
+            - @request
+            - @cache.driver
+            - @wardormeur.phpbbwpunicorn.user
+            - %core.root_path%
+            - %core.php_ext%
+        tags:
+            - { name: event.listener }
