@@ -19,7 +19,7 @@ class SafeFunction extends \PHPParser_NodeVisitorAbstract
 
     public function leaveNode(\PHPParser_Node $node) {
         $is_function = array_search($node->name,$this->functions);
-		if ( $node instanceof Stmt\Function_ && $is_function!== FALSE){	
+		if ( $node instanceof \PHPParser_Node_Stmt_Function && $is_function!== FALSE){	
 			$node = $this->encapsulate($node);
 			$this->removeFunction($is_function);
 			return $node;
@@ -28,12 +28,12 @@ class SafeFunction extends \PHPParser_NodeVisitorAbstract
 	
 	private function encapsulate($node){
 		$encapsulated_node = 
-			new PHPParser\Node\Stmt\If_(
-				new Expr\BooleanNot(
-					new PHPParser\Node\Expr\FuncCall(
-						new Name\FullyQualified('function_exists'),
+			new \PHPParser_Node_Stmt_If(
+				new \PHPParser_Node_Expr_BooleanNot(
+					new \PHPParser_Node_Expr_FuncCall(
+						new \PHPParser_Node_Name_FullyQualified('function_exists'),
 						[
-							new Node\Arg(new Scalar\String_($node->name))
+							new \PHPParser_Node_Arg(new \PHPParser_Node_Scalar_String($node->name))
 						]
 					)
 				)

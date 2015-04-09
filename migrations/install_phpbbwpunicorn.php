@@ -17,8 +17,6 @@ class install_phpbbwpunicorn extends \phpbb\db\migration\migration
 		global $phpbb_root_path;
 	   
 		//find wp install 
-		//since using bundle is tricky for ext, we'll use plain php, else what i'd go with symfony/finder
-		
 		$wp_path = $phpbb_root_path;
 		$i = 0; $found=false;
 		do{
@@ -36,12 +34,10 @@ class install_phpbbwpunicorn extends \phpbb\db\migration\migration
 			$files = array();
 			$iterator->rewind();
 			while( $iterator->valid() || !$found)
-			//foreach ($iterator as $info) 
 			{
 				$info = $iterator->current();
 				$iterator->next();
 			  //alasfiltering must be done here cause filter doesnt filter.meh.
-				//echo $info->getFilename();
 				if(strpos($info->getFilename(),'wp-config.php') === 0)
 					$files[] = $info->getPath();
 					//actually, yeah, we stop once we found one.
@@ -62,15 +58,18 @@ class install_phpbbwpunicorn extends \phpbb\db\migration\migration
 		$wp_path = $this->calculate_wp_default_path();
 		// Default settings to start with.
 		$config->set('phpbbwpunicorn_wp_path', $wp_path);
-		echo $config['phpbbwpunicorn_wp_path'];
+		$config->set('phpbbwpunicorn_wp_default_role', '');
+		$config->set('phpbbwpunicorn_wp_use_avatar', false);
+	
 		$settings_ary = array(
-			'wp_path'		=> $wp_path,
-			'last_sync'		=> 0
+			'phpbbwpunicorn_wp_path'		=> $wp_path,
+			'phpbbwpunicorn_wp_default_role'		=> '',
+			'phpbbwpunicorn_wp_sync_avatar'	=> 0,
+			'phpbbwpunicorn_wp_resync'	=> 0, //set a date
+			'phpbbwpunicorn_wp_cache'		=> 0 //set a date		
 		);
-		$settings = serialize($settings_ary);
 
 		return(array(
-			array('config_text.add', array('phpbbwpunicorn_settings', $settings)),
 
 			array('module.add', array(
 				'acp',

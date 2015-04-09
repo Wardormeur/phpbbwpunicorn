@@ -7,8 +7,15 @@ services:
             - @dbal.conn
             - @request
             - @user
+            - @user_loader
             - %core.php_ext%
-            - %core.root_path%
+            - %core.root_path%    
+    wardormeur.phpbbwpunicorn.proxy:
+        class: wardormeur\phpbbwpunicorn\proxy
+        calls:
+            - [set_config,[@config]]
+            - [set_phpEx, ["%core.php_ext%"]]
+            - [set_phpbb_root_path, ["%core.root_path%"]]
 
 
     wardormeur.phpbbwpunicorn.listener:

@@ -16,8 +16,23 @@ class phpbbwpunicorn_module
 
 	function main($id, $mode)
 	{
-		global $db, $request, $template, $user;
+		global $request, $template, $user, $phpbb_container,$phpbb_root_path,$config,$phpEx;
+		
+		$proxy = $phpbb_container->get('wardormeur.phpbbwpunicorn.proxy');
+		//not defined?? WTF ?
+		//$phpbb_root_path = $phpbb_container->get("core.root_path");
+		//$config = $phpbb_container->get('core.config');
+		//$phpEx = $phpbb_container->get('core.php_ext');
 
+		//required to list the wordpress roles avaialbes
+		$request->enable_super_globals();
+		require_once($config['phpbbwpunicorn_wp_path'].'/wp-load.php');
+
+		require_once($config['phpbbwpunicorn_wp_path'].'/wp-includes/plugin.'.$phpEx);
+		require_once($config['phpbbwpunicorn_wp_path'].'/wp-admin/includes/user.'.$phpEx);
+		
+		require_once($config['phpbbwpunicorn_wp_path'].'/wp-includes/capabilities.'.$phpEx);
+		$request->disable_super_globals();
 		$user->add_lang('acp/groups');
 
 		$this->page_title = $user->lang['ACP_PWU_TITLE'];
@@ -26,32 +41,8 @@ class phpbbwpunicorn_module
 		add_form_key('unicornfart');
 
 		// Get saved settings.
-		/*$sql = 'SELECT * FROM ' . CONFIG_TEXT_TABLE . "
-				WHERE config_name = 'banhammer_settings'";
-		$result = $db->sql_query($sql);
-		$settings = $db->sql_fetchfield('config_value');
-		$db->sql_freeresult($result);
-
-		if (!empty($settings))
-		{
-			$settings = unserialize($settings);
-		}
-		else
-		{
-			// Default settings in case something went wrong with the install.
-			$settings = array(
-				'ban_email'		=> 1,
-				'ban_ip'		=> 0,
-				'del_avatar'	=> 0,
-				'del_privmsgs'	=> 0,
-				'del_posts'		=> 0,
-				'del_profile'	=> 0,
-				'del_signature'	=> 0,
-				'group_id'		=> 0,
-				'sfs_api_key'	=> '',
-			);
-		}
-		*/
+	
+		
 		
 		if ($request->is_set_post('submit'))
 		{
@@ -60,8 +51,45 @@ class phpbbwpunicorn_module
 			{
 				trigger_error($user->lang['FORM_INVALID'] . adm_back_link($this->u_action), E_USER_WARNING);
 			}
-
-
+			$wp_path =  $request->variable('wp_path','');
+			$recache = $request->variable('wp_cache','');
+			$resync = $request->variable('wp_resync','');
+			$sync_avatar = $request->variable('wp_sync_avatar','');
+			/*var_dump($recache);
+			echo $recache;
+			var_dump($resync);
+			echo $resync;
+			var_dump($wp_sync_avatar);
+			*/
+			if(( $config['phpbbwpunicorn_wp_path'] != $wp_path && !empty($wp_path)) 
+				|| $recache == 'on'){
+				//we need to recache, since the wp_path has changed
+				echo 'recache';
+				$proxy->cache();
+			}
+			if($resync == 'on' || $sync_avatar == 'on'){
+				//resync every users
+				//we get the service from here in order to not block the regeneration of cache if it's none-working
+				echo 'resync';
+				$wp_user = $phpbb_container->get('wardormeur.phpbbwpunicorn.user');
+				$wp_user->sync_users();
+			}
+			//we set the last dates of sync
+			$recache = $recache=="on"?time():$config['phpbbwpunicorn_wp_cache'];
+			$resync = $resync=="on"?time():$config['phpbbwpunicorn_wp_resync'];
+			
+			// Default settings in case something went wrong with the install.
+			$settings = array(
+				'phpbbwpunicorn_wp_path'		=> $wp_path,
+				'phpbbwpunicorn_wp_cache'		=> $recache, //set a date
+				'phpbbwpunicorn_wp_sync_avatar'	=> $sync_avatar,
+				'phpbbwpunicorn_wp_resync'	=> $resync, //set a date
+				'phpbbwpunicorn_wp_default_role'		=> $request->variable('wp_default_role',0) //wp role id
+			);
+			foreach($settings as $key=>$value){
+				$config->set($key,$value);
+			}
+			
 			if ($success === false)
 			{
 				trigger_error($user->lang['SETTINGS_ERROR'] . adm_back_link($this->u_action), E_USER_ERROR);
@@ -71,8 +99,20 @@ class phpbbwpunicorn_module
 				trigger_error($user->lang['SETTINGS_SUCCESS'] . adm_back_link($this->u_action));
 			}
 		}
-
+		$request->enable_super_globals();
+		$roles = new \WP_Roles();
+		$list_roles = $roles->get_names();
+		$request->disable_super_globals();
+		foreach($list_roles as $role){
+			$html_roles = $html_roles.'<option>'.$role.'</option>';
+		}
+		
 		$template->assign_vars(array(
+			'PATH'	=> $config['phpbbwpunicorn_wp_path'],
+			'CACHE'	=> $config['phpbbwpunicorn_wp_cache'],
+			'RESYNC'	=> $config['phpbbwpunicorn_wp_resync'],
+			'AVATAR'	=> $config['phpbbwpunicorn_wp_sync_avatar'],
+			'DEFAULT_ROLE'	=> $html_roles
 		));
 	}
 

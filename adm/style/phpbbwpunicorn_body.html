@@ -10,8 +10,22 @@
 	<fieldset>
 		
 		<dl>
-			<dt><label for="sync">{L_ACP_SYNC}:</label></dt>
-			<dd><input type="checkbox" name="sync"></input></dd> 
+			<dt><label for="wp_path">{L_WP_PATH}:</label></dt>
+			<dd><input type="text" name="wp_path" id="wp_path" value="{PATH}"></input></dd> 
+			
+			<dt><label for="wp_cache">{L_WP_CACHE}:</label></dt>
+			<dd><input type="checkbox" name="wp_cache" id="wp_cache"></input> {L_LAST_TIME} : {CACHE}</dd> 
+			
+			<dt><label for="wp_sync_avatar">{L_WP_SYNC_AVATAR}:</label></dt>
+			<dd><input type="checkbox" name="wp_sync_avatar" id="wp_sync_avatar" value="{AVATAR}"></input></dd> 
+			
+			<dt><label for="wp_resync">{L_WP_RESYNC}:</label></dt>
+			<dd><input type="checkbox" name="wp_resync" id="wp_resync" ></input> {L_LAST_TIME} : {RESYNC}</dd> 
+			
+			<dt><label for="wp_default_role">{L_WP_DEFAULT_ROLE}:</label></dt>
+			<dd><select name="wp_default_role">{DEFAULT_ROLE}</select></dd> 
+			<!-- TODO : foreach phpbb role, set a wp role -->
+			
 		</dl>
 		<p class="submit-buttons">
 			<input class="button1" type="submit" id="submit" name="submit" value="{L_SUBMIT}" />&nbsp;
