@@ -36,10 +36,7 @@ class createuser_listener implements EventSubscriberInterface
 		$this->bridge_user 	= $bridge_user;
 		$this->root_path	= $phpbb_root_path;
 		$this->php_ext		= $phpExt;
-		
 
-		
-		
 	}
 	
 	/*Naming : WP functions use pattern wp_verb_compl, so we do a smhtin verb_wp_compl here when encapsulating*/
@@ -47,12 +44,16 @@ class createuser_listener implements EventSubscriberInterface
 	
 	public function listen_create_wp_user($event)
 	{
-		$this->bridge_user->create_wp_user($event['user_row']);
+		$local_user = $event['user_row'];
+		if( in_array($local_user['user_type'], array(0,3))){
+			$this->bridge_user->create_wp_user($event['user_row']);
+		}
 	}
 	
 	
 	public function listen_update_wp_user($event)
 	{
+		//no check here, we suppose the user was allowed to be created
 		$this->bridge_user->update_wp_user($event['user_row']);
 	}
 	

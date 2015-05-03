@@ -33,25 +33,25 @@ class user{
 		define( 'SHORTINIT', TRUE );
 		
 		$this->request->enable_super_globals();//Gosh.. WP.
-		require( $path_to_wp.'/wp-load.'.$phpEx );
+		require_once( $path_to_wp.'/wp-load.'.$phpEx );
 
-		require($this->phpbb_root_path.'includes/functions_user.'.$this->phpbb_phpEx);
+		require_once($this->phpbb_root_path.'includes/functions_user.'.$this->phpbb_phpEx);
 		//VERY MINIMAL FUCKING CONF MODAFUCKERS!!1
-		require($path_to_wp.'/wp-includes/l10n.'.$phpEx);
-		require($path_to_wp.'/wp-includes/post.'.$phpEx);
-		require($path_to_wp.'/wp-includes/query.'.$phpEx);
-		require($path_to_wp.'/wp-includes/taxonomy.'.$phpEx);
-		require($path_to_wp.'/wp-includes/capabilities.'.$phpEx);
-		require($path_to_wp.'/wp-includes/meta.'.$phpEx);
-		require($path_to_wp.'/wp-includes/link-template.'.$phpEx);
-		require($path_to_wp.'/wp-includes/pluggable.'.$phpEx);
-		require($path_to_wp.'/wp-includes/kses.'.$phpEx);
+		require_once($path_to_wp.'/wp-includes/l10n.'.$phpEx);
+		require_once($path_to_wp.'/wp-includes/post.'.$phpEx);
+		require_once($path_to_wp.'/wp-includes/query.'.$phpEx);
+		require_once($path_to_wp.'/wp-includes/taxonomy.'.$phpEx);
+		require_once($path_to_wp.'/wp-includes/capabilities.'.$phpEx);
+		require_once($path_to_wp.'/wp-includes/meta.'.$phpEx);
+		require_once($path_to_wp.'/wp-includes/link-template.'.$phpEx);
+		require_once($path_to_wp.'/wp-includes/pluggable.'.$phpEx);
+		require_once($path_to_wp.'/wp-includes/kses.'.$phpEx);
 	
 	
-		require($this->phpbb_root_path . 'cache/phpbbwpunicorn_user.'.$this->phpbb_phpEx);
+		require_once($this->phpbb_root_path . 'cache/phpbbwpunicorn_user.'.$this->phpbb_phpEx);
 		
 	
-		require($this->phpbb_root_path . 'cache/phpbbwpunicorn_formatting.'.$this->phpbb_phpEx);
+		require_once($this->phpbb_root_path . 'cache/phpbbwpunicorn_formatting.'.$this->phpbb_phpEx);
 		
 		$this->request->disable_super_globals();
 	
@@ -67,20 +67,24 @@ class user{
 	public function create_wp_user($localuser)
 	{
 		$this->request->enable_super_globals();//Gosh.. WP.
-		
+
 		//Init data
 		$userdata['user_login'] =  $localuser['username'];
 		$userdata['user_pass'] = wp_generate_password();
+		$userdata['role'] = $this->config['phpbbwpunicorn_wp_default_role'];
+		var_dump($userdata);
 		$this->prepare_wp_user_array ($localuser,$userdata);
-			
+
+		//wp_insert_user https://codex.wordpress.org/Function_Reference/wp_insert_user
+		//wp_insert_user doesnt apply role on creation, only update; thx doc not saying that
 		$wpuser = wp_insert_user($userdata);
-	    //wp_insert_user https://codex.wordpress.org/Function_Reference/wp_insert_user
-		
+		wp_update_user( array ('ID' => $wpuser, 'role' => $userdata['role'] ) ) ;
+
 		// Update user meta information
 		update_user_meta($userid, 'phpbb_userid', $localuser['user_id']);	
 		//used by old bridge (wp_phpbb_bridge by e-xtnd.it) to link wp_user to user; save it for compatibility :)
 		$this->request->disable_super_globals();//Gosh.. WP.
-		
+
 		return $userid;
 	}
 
@@ -93,21 +97,22 @@ class user{
         $wpuser['aim'] = $localuser['user_aim'];
         $wpuser['yim'] = $localuser['user_yim'];
         /*What else is mappable ? */
-		
+
 		return $wpuser;
 	}
 	
 	
 	public function update_wp_user($localuser,$wpuser)
 	{
-	
+
 		$this->request->enable_super_globals();//Gosh.. WP
 		//We need to recover the id from the Wordpress part
 		if($wpuser == null)
 			$wpuser = \get_wp_user($localuser->data['username_clean']);
-		
+			
 		$wpuser = $this->prepare_wp_user_array($localuser,$wpuser);
 		
+		//we dont reapply the default role for specific cases
         wp_update_user($wpuser);
 		$this->request->disable_super_globals();//Gosh.. WP.
 	
@@ -115,7 +120,8 @@ class user{
 	
 	//get all users from phpbb & sync them into WP	
 	public function sync_users(){
-		$sql = 'SELECT user_id from '.USERS_TABLE;
+		//restrict to "normal" users
+		$sql = 'SELECT user_id from '.USERS_TABLE. ' WHERE user_type = 0 OR user_type = 3';
 		$result = $this->db->sql_query($sql);
 		/*recover every ID*/
 		while ($row = $this->db->sql_fetchrow($result))
@@ -150,12 +156,9 @@ class user{
 	}
 	
 	
-	//add user +avatar+specs?
-	//exclude banned users
-	//share sessions (redir single login) => into WP plugin
-	//post to forum
+	//exclude banned users on update
 	
 	//roles ? default + compare
-	//
+	
 }
 ?>

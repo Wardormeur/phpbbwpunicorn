@@ -26,6 +26,7 @@ class phpbbwpunicorn_module
 
 		//required to list the wordpress roles avaialbes
 		$request->enable_super_globals();
+		define( 'SHORTINIT', TRUE );
 		require_once($config['phpbbwpunicorn_wp_path'].'/wp-load.php');
 
 		require_once($config['phpbbwpunicorn_wp_path'].'/wp-includes/plugin.'.$phpEx);
@@ -53,39 +54,35 @@ class phpbbwpunicorn_module
 			}
 			$wp_path =  $request->variable('wp_path','');
 			$recache = $request->variable('wp_cache','');
-			$resync = $request->variable('wp_resync','');
 			$sync_avatar = $request->variable('wp_sync_avatar','');
-			/*var_dump($recache);
-			echo $recache;
-			var_dump($resync);
-			echo $resync;
-			var_dump($wp_sync_avatar);
-			*/
+			$default_role =  $request->variable('wp_default_role','');
+			if(empty($default_role)){
+				$default_role = $config['phpbbwpunicorn_wp_default_role'];
+				echo 'cf'.$default_role;
+			}
 			if(( $config['phpbbwpunicorn_wp_path'] != $wp_path && !empty($wp_path)) 
 				|| $recache == 'on'){
 				//we need to recache, since the wp_path has changed
-				echo 'recache';
 				$proxy->cache();
 			}
-			if($resync == 'on' || $sync_avatar == 'on'){
+			if($resync == 'on' ){
 				//resync every users
 				//we get the service from here in order to not block the regeneration of cache if it's none-working
-				echo 'resync';
 				$wp_user = $phpbb_container->get('wardormeur.phpbbwpunicorn.user');
 				$wp_user->sync_users();
 			}
 			//we set the last dates of sync
 			$recache = $recache=="on"?time():$config['phpbbwpunicorn_wp_cache'];
 			$resync = $resync=="on"?time():$config['phpbbwpunicorn_wp_resync'];
-			
+
 			// Default settings in case something went wrong with the install.
 			$settings = array(
 				'phpbbwpunicorn_wp_path'		=> $wp_path,
 				'phpbbwpunicorn_wp_cache'		=> $recache, //set a date
-				'phpbbwpunicorn_wp_sync_avatar'	=> $sync_avatar,
 				'phpbbwpunicorn_wp_resync'	=> $resync, //set a date
-				'phpbbwpunicorn_wp_default_role'		=> $request->variable('wp_default_role',0) //wp role id
+				'phpbbwpunicorn_wp_default_role'		=> $default_role //wp role name
 			);
+			//We savvvve
 			foreach($settings as $key=>$value){
 				$config->set($key,$value);
 			}
@@ -101,17 +98,16 @@ class phpbbwpunicorn_module
 		}
 		$request->enable_super_globals();
 		$roles = new \WP_Roles();
-		$list_roles = $roles->get_names();
 		$request->disable_super_globals();
-		foreach($list_roles as $role){
-			$html_roles = $html_roles.'<option>'.$role.'</option>';
+
+		foreach($roles->roles as $role=>$roledata){
+			$html_roles = $html_roles.'<option value="'.$role.'" '.($role == $config['phpbbwpunicorn_wp_default_role']?'selected':'').'>'.$roledata['name'].'</option>';
 		}
 		
 		$template->assign_vars(array(
 			'PATH'	=> $config['phpbbwpunicorn_wp_path'],
 			'CACHE'	=> $config['phpbbwpunicorn_wp_cache'],
 			'RESYNC'	=> $config['phpbbwpunicorn_wp_resync'],
-			'AVATAR'	=> $config['phpbbwpunicorn_wp_sync_avatar'],
 			'DEFAULT_ROLE'	=> $html_roles
 		));
 	}

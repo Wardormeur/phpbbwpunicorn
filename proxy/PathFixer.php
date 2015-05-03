@@ -26,7 +26,6 @@ class PathFixer extends \PHPParser_NodeVisitorAbstract
     public function enterNode(\PHPParser_Node $node) {
 		//We want to limit this fix to path for function that make use of paths
 		//this is achoice for my use case, be free to modify/remove it
-		//var_dump($node);
 		if ( $node instanceof Node\Expr\Include_ ){	
 				//We flush the string content
 				$this->temp_path_string = '';	
@@ -44,9 +43,7 @@ class PathFixer extends \PHPParser_NodeVisitorAbstract
 	//on leave node, if the full string have been found, we replace its content by our new one
 		if ( $node instanceof Node\Expr\Include_ ){
 			if($this->temp_path_string == $this->path_to_fix){	
-				//echo $this->temp_path_string ."||". $this->path_to_fix.'</br>';				
 				$node = $this->fixpath($node);
-				//echo '<pre>';var_dump($node);echo '</pre>';
 				$this->removePath($is_path);
 				return $node;
 			}		

@@ -59,12 +59,10 @@ class install_phpbbwpunicorn extends \phpbb\db\migration\migration
 		// Default settings to start with.
 		$config->set('phpbbwpunicorn_wp_path', $wp_path);
 		$config->set('phpbbwpunicorn_wp_default_role', '');
-		$config->set('phpbbwpunicorn_wp_use_avatar', false);
 	
 		$settings_ary = array(
 			'phpbbwpunicorn_wp_path'		=> $wp_path,
 			'phpbbwpunicorn_wp_default_role'		=> '',
-			'phpbbwpunicorn_wp_sync_avatar'	=> 0,
 			'phpbbwpunicorn_wp_resync'	=> 0, //set a date
 			'phpbbwpunicorn_wp_cache'		=> 0 //set a date		
 		);
