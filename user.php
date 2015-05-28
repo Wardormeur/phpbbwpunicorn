@@ -22,6 +22,7 @@ class user{
 		$this->phpbb_user = $user;
 		$this->request = $request;
 		$this->cache = $cache;
+		$this->user = $user;
 		$this->user_loader = $user_loader;
 
 		$this->phpbb_phpEx = $phpEx;
@@ -71,8 +72,7 @@ class user{
 		//Init data
 		$userdata['user_login'] =  $localuser['username'];
 		$userdata['user_pass'] = wp_generate_password();
-		$userdata['role'] = $this->config['phpbbwpunicorn_wp_default_role'];
-		var_dump($userdata);
+		$userdata['role'] = $this->get_role($localuser);
 		$this->prepare_wp_user_array ($localuser,$userdata);
 
 		//wp_insert_user https://codex.wordpress.org/Function_Reference/wp_insert_user
@@ -88,6 +88,36 @@ class user{
 		return $userid;
 	}
 
+	private function get_role($localuser){
+		$role = $this->config['phpbbwpunicorn_wp_default_role'];
+		//TODO: this actually shows a bad design, requiring me to loop over roles whereas a bi-directionnal array could have mesaved from that
+		//stock every role into a single multi dim array?
+		$potential_roles[] = $role?$role:[];
+		$roles = new \WP_Roles();
+		
+		foreach(array_reverse(array_keys($roles->roles)) as $wp_role)// we reverse it to put the importants roles (as admin/editor) as the last choice
+		{
+			$phpbb_roles = unserialize($this->config['phpbbwpunicorn_role_'.$wp_role]);
+			foreach($phpbb_roles as $phpbb_role)
+			{
+				$user_groups =  group_memberships(false,$localuser['user_id']);
+
+				foreach($user_groups as $user_group)
+				{
+					if ($phpbb_role == $user_group["group_id"])
+					{
+						$potential_roles[] = $wp_role;
+					}
+				}
+			}
+		}
+		//pooooooooooor design, gush.
+		//Which one are we supposed to return? Lol. first of order per ID Desc?
+		
+		return $potential_roles[count($potential_roles)-1];
+	}
+	
+	
 	private function prepare_wp_user_array($localuser,$wpuser)
 	{
 		$wpuser['user_url'] = $localuser['user_website'];
@@ -104,18 +134,20 @@ class user{
 	
 	public function update_wp_user($localuser,$wpuser)
 	{
-
 		$this->request->enable_super_globals();//Gosh.. WP
 		//We need to recover the id from the Wordpress part
 		if($wpuser == null)
 			$wpuser = \get_wp_user($localuser->data['username_clean']);
 			
 		$wpuser = $this->prepare_wp_user_array($localuser,$wpuser);
+		$wpuser['role'] = $this->get_role($localuser);
 		
 		//we dont reapply the default role for specific cases
         wp_update_user($wpuser);
+		//used by old bridge (wp_phpbb_bridge by e-xtnd.it) to link wp_user to user; save it for compatibility :)
+		update_user_meta($userid, 'phpbb_userid', $localuser['user_id']);	
+		
 		$this->request->disable_super_globals();//Gosh.. WP.
-	
 	}
 	
 	//get all users from phpbb & sync them into WP	

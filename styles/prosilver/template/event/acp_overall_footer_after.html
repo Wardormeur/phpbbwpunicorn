@@ -1,0 +1,7 @@
+<script>
+	$(document).ready(function(){
+		$('select[name="wp_role"]').on('change',function(event){
+			$('label.wp_assoc_role').attr("id",event.data);
+		});
+	})
+</script>

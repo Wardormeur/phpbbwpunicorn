@@ -21,8 +21,14 @@
 			
 			<dt><label for="wp_default_role">{L_WP_DEFAULT_ROLE}:</label></dt>
 			<dd><select name="wp_default_role">{DEFAULT_ROLE}</select></dd> 
-			<!-- TODO : foreach phpbb role, set a wp role -->
-			
+
+			<dt><label for="wp_assoc_role">{L_WP_ASSOCIATED_ROLE} </label></dt>
+			<!-- This CSS hack aint perfect, but it does the job? -->
+			<dd><label>PhpBB roles</label><label style="margin-left:100px;">WP roles</label></dd>
+			<!-- BEGIN roles -->
+			<dd><select name="phpbb_role{roles.index}[]" multiple><!-- BEGIN phpbb --><option {roles.phpbb.selected} value="{roles.phpbb.ID}">{roles.phpbb.NAME}</option><!-- END phpbb --></select>
+			<select name="wp_role{roles.index}" ><!-- BEGIN wp --><option {roles.wp.selected} value="{roles.wp.ID}" >{roles.wp.NAME}</option><!-- END wp --></select></dd> 
+			<!-- END roles -->
 		</dl>
 		<p class="submit-buttons">
 			<input class="button1" type="submit" id="submit" name="submit" value="{L_SUBMIT}" />&nbsp;
@@ -31,5 +37,4 @@
 		{S_FORM_TOKEN}
 	</fieldset>
 </form>
-
 <!-- INCLUDE overall_footer.html -->

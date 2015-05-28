@@ -53,4 +53,5 @@ $lang = array_merge($lang, array(
 	'WP_DEFAULT_ROLE'			=> 'Default role used in Wordpress (overwriting the one defined by Wordpress)',
 	'SETTINGS_ERROR'		=> 'There was an error saving your settings. Please submit the back trace with your error report.',
 	'SETTINGS_SUCCESS'		=> 'The settings were successfully saved',
-	));
+	'WP_ASSOCIATED_ROLE'	=> 'Manual role association',
+));
