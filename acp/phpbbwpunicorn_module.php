@@ -29,19 +29,21 @@ class phpbbwpunicorn_module
 		$this->phpbb_container = $phpbb_container;
 		$this->template = $template;
 		$this->proxy = $this->phpbb_container->get('wardormeur.phpbbwpunicorn.proxy');
-		
+		$this->active = false;
 		//required to list the wordpress roles avaialbes
-		$this->request->enable_super_globals();
-		define( 'SHORTINIT', TRUE );
-		require_once($this->config['phpbbwpunicorn_wp_path'].'/wp-load.php');
+		if(!empty($this->config['phpbbwpunicorn_wp_path'])){
+			$this->active = true;
+			$this->request->enable_super_globals();
+			define( 'SHORTINIT', TRUE );
+			require_once($this->config['phpbbwpunicorn_wp_path'].'/wp-load.php');
 
-		require_once($this->config['phpbbwpunicorn_wp_path'].'/wp-includes/plugin.'.$phpEx);
-		require_once($this->config['phpbbwpunicorn_wp_path'].'/wp-admin/includes/user.'.$phpEx);
-		
-		require_once($this->config['phpbbwpunicorn_wp_path'].'/wp-includes/capabilities.'.$phpEx);
-		$this->request->disable_super_globals();
+			require_once($this->config['phpbbwpunicorn_wp_path'].'/wp-includes/plugin.'.$phpEx);
+			require_once($this->config['phpbbwpunicorn_wp_path'].'/wp-admin/includes/user.'.$phpEx);
+			
+			require_once($this->config['phpbbwpunicorn_wp_path'].'/wp-includes/capabilities.'.$phpEx);
+			$this->request->disable_super_globals();
+		}
 		$this->user->add_lang('acp/groups');
-
 		$this->page_title = $this->user->lang['ACP_PWU_TITLE'];
 		$this->tpl_name = 'phpbbwpunicorn_body';
 
@@ -118,77 +120,73 @@ class phpbbwpunicorn_module
 			
 			$this->config->set('phpbbwpunicorn_role_'.$indexes[$i], serialize($temp_phpbb_r));
 		}
-		
-		if ($success === false)
-		{
-			trigger_error($this->user->lang['SETTINGS_ERROR'] . adm_back_link($this->u_action), E_USER_ERROR);
-		}
-		else
-		{
-			trigger_error($this->user->lang['SETTINGS_SUCCESS'] . adm_back_link($this->u_action));
-		}
+		trigger_error($this->user->lang['SETTINGS_SUCCESS'] . adm_back_link($this->u_action));
 	}
 	
 	
 	
 	private function display(){
-		$this->request->enable_super_globals();
-		$roles = new \WP_Roles();
-		$this->request->disable_super_globals();
-
-		foreach($roles->roles as $role=>$roledata){
-			$html_roles = $html_roles.'<option value="'.$role.'" '.($role == $this->config['phpbbwpunicorn_wp_default_role']?'selected':'').'>'.$roledata['name'].'</option>';
-		}
-		
-		$this->template->assign_vars(array(
-			'PATH'	=> $this->config['phpbbwpunicorn_wp_path'],
-			'CACHE'	=> date('c',$this->config['phpbbwpunicorn_wp_cache']),
-			'RESYNC'	=> date('c',$this->config['phpbbwpunicorn_wp_resync']),
-			'DEFAULT_ROLE'	=> $html_roles,
-		));
-		//Prepare block
-		
-		foreach($roles->roles as $key_group=>$group)
-		{
-			$wp_roles[]=array('NAME'=>$group['name'],'ID'=>$key_group);
-
-		}
-		foreach($this->get_groups() as $group)
-		{
-			$phpbb_roles[]=array('NAME'=>$group['group_name'],'ID'=>$group['group_id']);
-		}
-		
-		//TODO: something bugs me on those loops, like if it was not optimised; likecalling twice the same resource or smthing : must look into it
-		//to save, we must erase and resave every config related to mapping
-		//Passing by ref issue : modification is lost during the loop, even with a local copy
-		for ($i=0;$i<count($wp_roles);$i++)
-		{
-			$temp_wp_roles = (new \ArrayObject($wp_roles))->getArrayCopy();
-			$temp_phpbb_roles = (new \ArrayObject($phpbb_roles))->getArrayCopy();
+		if($this->active){
+			$this->request->enable_super_globals();
+			$roles = new \WP_Roles();
+			$this->request->disable_super_globals();
+			$html_roles = '';
+			foreach($roles->roles as $role=>$roledata){
+				$html_roles = $html_roles.'<option value="'.$role.'" '.($role == $this->config['phpbbwpunicorn_wp_default_role']?'selected':'').'>'.$roledata['name'].'</option>';
+			}
 			
-			//we extract the previously saved data 
-			if($this->config['phpbbwpunicorn_role_'.$temp_wp_roles[$i]['ID']])
+			$this->template->assign_vars(array(
+				'PATH'	=> $this->config['phpbbwpunicorn_wp_path'],
+				'CACHE'	=> date('c',$this->config['phpbbwpunicorn_wp_cache']),
+				'RESYNC'	=> date('c',$this->config['phpbbwpunicorn_wp_resync']),
+				'DEFAULT_ROLE'	=> $html_roles,
+			));
+			//Prepare block
+			
+			foreach($roles->roles as $key_group=>$group)
 			{
-				$phpbb_selected_roles = unserialize($this->config['phpbbwpunicorn_role_'.$temp_wp_roles[$i]['ID']]);
-				foreach($temp_phpbb_roles as &$local_phpbb_roles)
+				$wp_roles[]=array('NAME'=>$group['name'],'ID'=>$key_group);
+
+			}
+			foreach($this->get_groups() as $group)
+			{
+				$phpbb_roles[]=array('NAME'=>$group['group_name'],'ID'=>$group['group_id']);
+			}
+			
+			//TODO: something bugs me on those loops, like if it was not optimised; likecalling twice the same resource or smthing : must look into it
+			//to save, we must erase and resave every config related to mapping
+			//Passing by ref issue : modification is lost during the loop, even with a local copy
+			for ($i=0;$i<count($wp_roles);$i++)
+			{
+				$temp_wp_roles = (new \ArrayObject($wp_roles))->getArrayCopy();
+				$temp_phpbb_roles = (new \ArrayObject($phpbb_roles))->getArrayCopy();
+				
+				//we extract the previously saved data 
+				if($this->config['phpbbwpunicorn_role_'.$temp_wp_roles[$i]['ID']])
 				{
-				//We compare the extracted id with all the existing roles
-					foreach($phpbb_selected_roles as $proles_id)
+					$phpbb_selected_roles = unserialize($this->config['phpbbwpunicorn_role_'.$temp_wp_roles[$i]['ID']]);
+					foreach($temp_phpbb_roles as &$local_phpbb_roles)
 					{
-						if($proles_id == $local_phpbb_roles['ID'] ){
-							$local_phpbb_roles['selected'] = 'selected';
+					//We compare the extracted id with all the existing roles
+						foreach($phpbb_selected_roles as $proles_id)
+						{
+							if($proles_id == $local_phpbb_roles['ID'] ){
+								$local_phpbb_roles['selected'] = 'selected';
+							}
 						}
 					}
 				}
+				$temp_wp_roles[$i]['selected'] = 'selected';
+				$this->template->assign_block_vars('roles',array(
+					'wp'=>$temp_wp_roles,
+					'phpbb'=>$temp_phpbb_roles,
+					'index'=>$i)
+				);
 			}
-			$temp_wp_roles[$i]['selected'] = 'selected';
-			$this->template->assign_block_vars('roles',array(
-				'wp'=>$temp_wp_roles,
-				'phpbb'=>$temp_phpbb_roles,
-				'index'=>$i)
-			);
 		}
-	
+		$this->template->assign_vars(array(
+			'active'=>$this->active
+			));
 	}
 	
 	

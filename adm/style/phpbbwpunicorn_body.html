@@ -18,10 +18,10 @@
 			
 			<dt><label for="wp_resync">{L_WP_RESYNC}:</label></dt>
 			<dd><input type="checkbox" name="wp_resync" id="wp_resync" ></input> {L_LAST_TIME} : {RESYNC}</dd> 
-			
+			<!-- IF active -->
 			<dt><label for="wp_default_role">{L_WP_DEFAULT_ROLE}:</label></dt>
 			<dd><select name="wp_default_role">{DEFAULT_ROLE}</select></dd> 
-
+			
 			<dt><label for="wp_assoc_role">{L_WP_ASSOCIATED_ROLE} </label></dt>
 			<!-- This CSS hack aint perfect, but it does the job? -->
 			<dd><label>PhpBB roles</label><label style="margin-left:100px;">WP roles</label></dd>
@@ -29,6 +29,7 @@
 			<dd><select name="phpbb_role{roles.index}[]" multiple><!-- BEGIN phpbb --><option {roles.phpbb.selected} value="{roles.phpbb.ID}">{roles.phpbb.NAME}</option><!-- END phpbb --></select>
 			<select name="wp_role{roles.index}" ><!-- BEGIN wp --><option {roles.wp.selected} value="{roles.wp.ID}" >{roles.wp.NAME}</option><!-- END wp --></select></dd> 
 			<!-- END roles -->
+			<!-- ENDIF -->
 		</dl>
 		<p class="submit-buttons">
 			<input class="button1" type="submit" id="submit" name="submit" value="{L_SUBMIT}" />&nbsp;

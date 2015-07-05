@@ -21,7 +21,6 @@ class user{
 		$this->db = $db;
 		$this->phpbb_user = $user;
 		$this->request = $request;
-		$this->cache = $cache;
 		$this->user = $user;
 		$this->user_loader = $user_loader;
 
@@ -79,13 +78,12 @@ class user{
 		//wp_insert_user doesnt apply role on creation, only update; thx doc not saying that
 		$wpuser = wp_insert_user($userdata);
 		wp_update_user( array ('ID' => $wpuser, 'role' => $userdata['role'] ) ) ;
-
 		// Update user meta information
-		update_user_meta($userid, 'phpbb_userid', $localuser['user_id']);	
+		update_user_meta($wpuser, 'phpbb_userid', $localuser['user_id']);	
 		//used by old bridge (wp_phpbb_bridge by e-xtnd.it) to link wp_user to user; save it for compatibility :)
 		$this->request->disable_super_globals();//Gosh.. WP.
 
-		return $userid;
+		return $wpuser;
 	}
 
 	private function get_role($localuser){
@@ -145,7 +143,7 @@ class user{
 		//we dont reapply the default role for specific cases
         wp_update_user($wpuser);
 		//used by old bridge (wp_phpbb_bridge by e-xtnd.it) to link wp_user to user; save it for compatibility :)
-		update_user_meta($userid, 'phpbb_userid', $localuser['user_id']);	
+		update_user_meta($wpuser, 'phpbb_userid', $localuser['user_id']);	
 		
 		$this->request->disable_super_globals();//Gosh.. WP.
 	}
