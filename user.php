@@ -93,11 +93,13 @@ class user{
 		$potential_roles[] = $role?$role:[];
 		$roles = new \WP_Roles();
 
+
 		foreach(array_reverse(array_keys($roles->roles)) as $wp_role)// we reverse it to put the importants roles (as admin/editor) as the last choice
 		{
 			$phpbb_roles = unserialize($this->config['phpbbwpunicorn_role_'.$wp_role]);
 			foreach($phpbb_roles as $phpbb_role)
 			{
+
 				$user_groups =  group_memberships(false,$localuser['user_id']);
 
 				foreach($user_groups as $user_group)
