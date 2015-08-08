@@ -19,7 +19,7 @@ class phpbbwpunicorn_module
 	private $user;
 	private $phpbb_container;
 	private $template;
-	
+
 	function main($id, $mode)
 	{
 		global $request, $template, $user, $phpbb_container,$phpbb_root_path,$config,$phpEx;
@@ -39,7 +39,7 @@ class phpbbwpunicorn_module
 
 			require_once($this->config['phpbbwpunicorn_wp_path'].'/wp-includes/plugin.'.$phpEx);
 			require_once($this->config['phpbbwpunicorn_wp_path'].'/wp-admin/includes/user.'.$phpEx);
-			
+
 			require_once($this->config['phpbbwpunicorn_wp_path'].'/wp-includes/capabilities.'.$phpEx);
 			$this->request->disable_super_globals();
 		}
@@ -50,18 +50,18 @@ class phpbbwpunicorn_module
 		add_form_key('unicornfart');
 
 		// Get saved settings.
-	
-		
-		
+
+
+
 		if ($this->request->is_set_post('submit'))
 		{
 			$this->save();
 		}
-		
+
 		$this->display();
-		
+
 	}
-	
+
 	private function save(){
 		// Test if form key is valid
 		if (!check_form_key('unicornfart'))
@@ -76,7 +76,7 @@ class phpbbwpunicorn_module
 		{
 			$default_role = $this->config['phpbbwpunicorn_wp_default_role'];
 		}
-		if(( $this->config['phpbbwpunicorn_wp_path'] != $wp_path && !empty($wp_path)) 
+		if(( $this->config['phpbbwpunicorn_wp_path'] != $wp_path && !empty($wp_path))
 			|| $recache == 'on'){
 			//we need to recache, since the wp_path has changed
 			$this->proxy->cache();
@@ -104,7 +104,7 @@ class phpbbwpunicorn_module
 		{
 			$this->config->set($key,$value);
 		}
-		
+
 		//Association of roles/groups
 		//we count the number of roles and use the name of wp role to associate. A number wouldnt work as the wordpress isnt saving a proper id
 		// a table could have been a solution, but would let the config out of the config table
@@ -117,14 +117,14 @@ class phpbbwpunicorn_module
 		{
 			$temp_wp_r = $this->request->variable("wp_role$i",'');
 			$temp_phpbb_r = $this->request->variable('phpbb_role'.$i, array(0));
-			
+
 			$this->config->set('phpbbwpunicorn_role_'.$indexes[$i], serialize($temp_phpbb_r));
 		}
 		trigger_error($this->user->lang['SETTINGS_SUCCESS'] . adm_back_link($this->u_action));
 	}
-	
-	
-	
+
+
+
 	private function display(){
 		if($this->active){
 			$this->request->enable_super_globals();
@@ -134,15 +134,15 @@ class phpbbwpunicorn_module
 			foreach($roles->roles as $role=>$roledata){
 				$html_roles = $html_roles.'<option value="'.$role.'" '.($role == $this->config['phpbbwpunicorn_wp_default_role']?'selected':'').'>'.$roledata['name'].'</option>';
 			}
-			
+
 			$this->template->assign_vars(array(
 				'PATH'	=> $this->config['phpbbwpunicorn_wp_path'],
-				'CACHE'	=> date('c',$this->config['phpbbwpunicorn_wp_cache']),
-				'RESYNC'	=> date('c',$this->config['phpbbwpunicorn_wp_resync']),
+				'CACHE'	=> $this->config['phpbbwpunicorn_wp_cache'] ? date('c',$this->config['phpbbwpunicorn_wp_cache']) : 'Never',
+				'RESYNC'	=> $this->config['phpbbwpunicorn_wp_resync'] ? date('c',$this->config['phpbbwpunicorn_wp_resync']) : 'Never' ,
 				'DEFAULT_ROLE'	=> $html_roles,
 			));
 			//Prepare block
-			
+
 			foreach($roles->roles as $key_group=>$group)
 			{
 				$wp_roles[]=array('NAME'=>$group['name'],'ID'=>$key_group);
@@ -152,7 +152,7 @@ class phpbbwpunicorn_module
 			{
 				$phpbb_roles[]=array('NAME'=>$group['group_name'],'ID'=>$group['group_id']);
 			}
-			
+
 			//TODO: something bugs me on those loops, like if it was not optimised; likecalling twice the same resource or smthing : must look into it
 			//to save, we must erase and resave every config related to mapping
 			//Passing by ref issue : modification is lost during the loop, even with a local copy
@@ -160,8 +160,8 @@ class phpbbwpunicorn_module
 			{
 				$temp_wp_roles = (new \ArrayObject($wp_roles))->getArrayCopy();
 				$temp_phpbb_roles = (new \ArrayObject($phpbb_roles))->getArrayCopy();
-				
-				//we extract the previously saved data 
+
+				//we extract the previously saved data
 				if($this->config['phpbbwpunicorn_role_'.$temp_wp_roles[$i]['ID']])
 				{
 					$phpbb_selected_roles = unserialize($this->config['phpbbwpunicorn_role_'.$temp_wp_roles[$i]['ID']]);
@@ -188,8 +188,8 @@ class phpbbwpunicorn_module
 			'active'=>$this->active
 			));
 	}
-	
-	
+
+
 	/**
 	 * function to return groups that are mappable
 	 */
