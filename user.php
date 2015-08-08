@@ -1,4 +1,4 @@
-<?php 
+<?php
 
 
 namespace wardormeur\phpbbwpunicorn;
@@ -8,7 +8,7 @@ namespace wardormeur\phpbbwpunicorn;
 class user{
 	public function __construct(\phpbb\auth\auth $auth,
 		\phpbb\config\config $config,
-		\phpbb\db\driver\driver_interface $db, 
+		\phpbb\db\driver\driver_interface $db,
 		\phpbb\request\request $request,
 		\phpbb\user $user,
 		\phpbb\user_loader  $user_loader,
@@ -31,7 +31,7 @@ class user{
 		$path_to_wp = $config['phpbbwpunicorn_wp_path'];
 		define( 'WP_USE_THEMES', FALSE );
 		define( 'SHORTINIT', TRUE );
-		
+
 		$this->request->enable_super_globals();//Gosh.. WP.
 		require_once( $path_to_wp.'/wp-load.'.$phpEx );
 
@@ -46,24 +46,24 @@ class user{
 		require_once($path_to_wp.'/wp-includes/link-template.'.$phpEx);
 		require_once($path_to_wp.'/wp-includes/pluggable.'.$phpEx);
 		require_once($path_to_wp.'/wp-includes/kses.'.$phpEx);
-	
-	
+
+
 		require_once($this->phpbb_root_path . 'cache/phpbbwpunicorn_user.'.$this->phpbb_phpEx);
-		
-	
+
+
 		require_once($this->phpbb_root_path . 'cache/phpbbwpunicorn_formatting.'.$this->phpbb_phpEx);
-		
+
 		$this->request->disable_super_globals();
-	
+
 	}
 
 	public function __destroy(){
 		$this->request->disable_super_globals();
-	
-	
+
+
 	}
-	
-	
+
+
 	public function create_wp_user($localuser)
 	{
 		$this->request->enable_super_globals();//Gosh.. WP.
@@ -79,7 +79,7 @@ class user{
 		$wpuser = wp_insert_user($userdata);
 		wp_update_user( array ('ID' => $wpuser, 'role' => $userdata['role'] ) ) ;
 		// Update user meta information
-		update_user_meta($wpuser, 'phpbb_userid', $localuser['user_id']);	
+		update_user_meta($wpuser, 'phpbb_userid', $localuser['user_id']);
 		//used by old bridge (wp_phpbb_bridge by e-xtnd.it) to link wp_user to user; save it for compatibility :)
 		$this->request->disable_super_globals();//Gosh.. WP.
 
@@ -92,7 +92,7 @@ class user{
 		//stock every role into a single multi dim array?
 		$potential_roles[] = $role?$role:[];
 		$roles = new \WP_Roles();
-		
+
 		foreach(array_reverse(array_keys($roles->roles)) as $wp_role)// we reverse it to put the importants roles (as admin/editor) as the last choice
 		{
 			$phpbb_roles = unserialize($this->config['phpbbwpunicorn_role_'.$wp_role]);
@@ -111,11 +111,11 @@ class user{
 		}
 		//pooooooooooor design, gush.
 		//Which one are we supposed to return? Lol. first of order per ID Desc?
-		
+
 		return $potential_roles[count($potential_roles)-1];
 	}
-	
-	
+
+
 	private function prepare_wp_user_array($localuser,$wpuser)
 	{
 		$wpuser['user_url'] = $localuser['user_website'];
@@ -128,27 +128,27 @@ class user{
 
 		return $wpuser;
 	}
-	
-	
+
+
 	public function update_wp_user($localuser,$wpuser)
 	{
 		$this->request->enable_super_globals();//Gosh.. WP
 		//We need to recover the id from the Wordpress part
 		if($wpuser == null)
 			$wpuser = \get_wp_user($localuser->data['username_clean']);
-			
+
 		$wpuser = $this->prepare_wp_user_array($localuser,$wpuser);
 		$wpuser['role'] = $this->get_role($localuser);
-		
+
 		//we dont reapply the default role for specific cases
         wp_update_user($wpuser);
 		//used by old bridge (wp_phpbb_bridge by e-xtnd.it) to link wp_user to user; save it for compatibility :)
-		update_user_meta($wpuser, 'phpbb_userid', $localuser['user_id']);	
-		
+		update_user_meta($wpuser, 'phpbb_userid', $localuser['user_id']);
+
 		$this->request->disable_super_globals();//Gosh.. WP.
 	}
-	
-	//get all users from phpbb & sync them into WP	
+
+	//get all users from phpbb & sync them into WP
 	public function sync_users(){
 		//restrict to "normal" users
 		$sql = 'SELECT user_id from '.USERS_TABLE. ' WHERE user_type = 0 OR user_type = 3';
@@ -159,13 +159,13 @@ class user{
 			$add_id[] = (int) $row['user_id'];
 		}
 		$this->db->sql_freeresult($result);
-		
+
 		$this->request->enable_super_globals();//Gosh.. WP.
 		/*get all real user*/
 		foreach($add_id as $user_id)
 		{
 			/*https://www.phpbb.de/infos/3.1/xref/nav.html?phpbb/user_loader.php.html#get_user*/
-			//yes, i know, im requesting twice the user, but fuck it, im lazy. 
+			//yes, i know, im requesting twice the user, but fuck it, im lazy.
 			//The less SQL and the more core function, the more robust?
 			$phpbbuser = $this->user_loader->get_user($user_id, true);
 			$wpuser = $this->get_wp_user($phpbbuser['username_clean']);
@@ -177,18 +177,18 @@ class user{
 			}
 		}
 		$this->request->disable_super_globals();//Gosh.. WP.
-	
+
 	}
-	
+
 	public function get_wp_user($username)
 	{
 		return get_user_by( 'slug', $username );
 	}
-	
-	
+
+
 	//exclude banned users on update
-	
+
 	//roles ? default + compare
-	
+
 }
 ?>

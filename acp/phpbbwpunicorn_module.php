@@ -29,18 +29,21 @@ class phpbbwpunicorn_module
 		$this->phpbb_container = $phpbb_container;
 		$this->template = $template;
 		$this->proxy = $this->phpbb_container->get('wardormeur.phpbbwpunicorn.proxy');
+		$this->phpbb_root_path = $phpbb_root_path;
+		$this->phpEx = $phpEx;
 		$this->active = false;
 		//required to list the wordpress roles avaialbes
-		if(!empty($this->config['phpbbwpunicorn_wp_path'])){
+
+		if($this->path_valids()){
 			$this->active = true;
 			$this->request->enable_super_globals();
 			define( 'SHORTINIT', TRUE );
-			require_once($this->config['phpbbwpunicorn_wp_path'].'/wp-load.php');
 
+			require_once($this->config['phpbbwpunicorn_wp_path'].'/wp-load.php');
 			require_once($this->config['phpbbwpunicorn_wp_path'].'/wp-includes/plugin.'.$phpEx);
 			require_once($this->config['phpbbwpunicorn_wp_path'].'/wp-admin/includes/user.'.$phpEx);
-
 			require_once($this->config['phpbbwpunicorn_wp_path'].'/wp-includes/capabilities.'.$phpEx);
+
 			$this->request->disable_super_globals();
 		}
 		$this->user->add_lang('acp/groups');
@@ -62,6 +65,10 @@ class phpbbwpunicorn_module
 
 	}
 
+	private function process(){
+
+	}
+
 	private function save(){
 		// Test if form key is valid
 		if (!check_form_key('unicornfart'))
@@ -72,69 +79,91 @@ class phpbbwpunicorn_module
 		$recache = $this->request->variable('wp_cache','');
 		$resync = $this->request->variable('wp_resync','');
 		$default_role =  $this->request->variable('wp_default_role','');
-		if(empty($default_role))
-		{
-			$default_role = $this->config['phpbbwpunicorn_wp_default_role'];
-		}
-		if(( $this->config['phpbbwpunicorn_wp_path'] != $wp_path && !empty($wp_path))
-			|| $recache == 'on'){
-			//we need to recache, since the wp_path has changed
-			$this->proxy->cache();
-		}
-		if($resync == 'on' )
-		{
-			//resync every users
-			//we get the service from here in order to not block the regeneration of cache if it's none-working
-			$wp_user = $this->phpbb_container->get('wardormeur.phpbbwpunicorn.user');
-			$wp_user->sync_users();
-		}
-		//we set the last dates of sync
-		$recache = $recache=="on"?time():$this->config['phpbbwpunicorn_wp_cache'];
-		$resync = $resync=="on"?time():$this->config['phpbbwpunicorn_wp_resync'];
 
-		// Default settings in case something went wrong with the install.
+		//
+		$wp_path_changed = $this->config['phpbbwpunicorn_wp_path'] != $wp_path ? true:false;
+		//we set the last dates of sync
+		$do_recache = $recache == "on" ? true:false;
+		$recache = $do_recache ? time():$this->config['phpbbwpunicorn_wp_cache'];
+		$do_resync = $resync == "on" ? true:false;
+		$resync = $do_resync ? time():$this->config['phpbbwpunicorn_wp_resync'];
+
 		$settings = array(
 			'phpbbwpunicorn_wp_path'		=> $wp_path,
 			'phpbbwpunicorn_wp_cache'		=> $recache, //set a date
 			'phpbbwpunicorn_wp_resync'	=> $resync, //set a date
 			'phpbbwpunicorn_wp_default_role'		=> $default_role //wp role name
 		);
+
 		//We savvvve
 		foreach($settings as $key=>$value)
 		{
 			$this->config->set($key,$value);
 		}
 
+		//process actions
+		if(empty($default_role))
+		{
+			$default_role = $this->config['phpbbwpunicorn_wp_default_role'];
+		}
+
+		if($this->path_valids() &&
+			($wp_path_changed  || $do_recache == 'on')){
+			//we need to recache, since the wp_path has changed
+			$this->proxy->set_config($this->config);
+			$this->proxy->cache();
+		}
+
+		if($do_resync == 'on' && $this->path_valids() )
+		{
+			//resync every users
+			//we get the service from here in order to not block the regeneration of cache if it's none-working
+			$wp_user = $this->phpbb_container->get('wardormeur.phpbbwpunicorn.user');
+			$this->proxy->set_config($this->config);
+			$wp_user->sync_users();
+		}
+
+
 		//Association of roles/groups
 		//we count the number of roles and use the name of wp role to associate. A number wouldnt work as the wordpress isnt saving a proper id
 		// a table could have been a solution, but would let the config out of the config table
-		$this->request->enable_super_globals();
-		$roles = new \WP_Roles();
-		$this->request->disable_super_globals();
-		$index = count($roles->roles);
-		$indexes = array_keys($roles->roles);
-		for ($i = 0; $i<$index; $i++)
-		{
-			$temp_wp_r = $this->request->variable("wp_role$i",'');
-			$temp_phpbb_r = $this->request->variable('phpbb_role'.$i, array(0));
+		if($this->active){
+			$this->request->enable_super_globals();
+			$roles = new \WP_Roles();
+			$this->request->disable_super_globals();
+			$index = count($roles->roles);
+			$indexes = array_keys($roles->roles);
+			for ($i = 0; $i<$index; $i++)
+			{
+				$temp_wp_r = $this->request->variable("wp_role$i",'');
+				$temp_phpbb_r = $this->request->variable('phpbb_role'.$i, array(0));
 
-			$this->config->set('phpbbwpunicorn_role_'.$indexes[$i], serialize($temp_phpbb_r));
+				$this->config->set('phpbbwpunicorn_role_'.$indexes[$i], serialize($temp_phpbb_r));
+			}
 		}
-		trigger_error($this->user->lang['SETTINGS_SUCCESS'] . adm_back_link($this->u_action));
+
+		if(!$this->path_valids()){
+			trigger_error($this->user->lang['FORM_INVALID'] . adm_back_link($this->u_action), E_USER_WARNING);
+		} else {
+			trigger_error($this->user->lang['SETTINGS_SUCCESS'] . adm_back_link($this->u_action));
+		}
+
 	}
 
 
 
 	private function display(){
+		$html_roles = '';
+
 		if($this->active){
 			$this->request->enable_super_globals();
 			$roles = new \WP_Roles();
 			$this->request->disable_super_globals();
-			$html_roles = '';
+
 			foreach($roles->roles as $role=>$roledata){
 				$html_roles = $html_roles.'<option value="'.$role.'" '.($role == $this->config['phpbbwpunicorn_wp_default_role']?'selected':'').'>'.$roledata['name'].'</option>';
 			}
-
+		}
 			$this->template->assign_vars(array(
 				'PATH'	=> $this->config['phpbbwpunicorn_wp_path'],
 				'CACHE'	=> $this->config['phpbbwpunicorn_wp_cache'] ? date('c',$this->config['phpbbwpunicorn_wp_cache']) : 'Never',
@@ -143,6 +172,7 @@ class phpbbwpunicorn_module
 			));
 			//Prepare block
 
+		if($this->active){
 			foreach($roles->roles as $key_group=>$group)
 			{
 				$wp_roles[]=array('NAME'=>$group['name'],'ID'=>$key_group);
@@ -213,5 +243,22 @@ class phpbbwpunicorn_module
 		$db->sql_freeresult($result);
 
 		return $groups;
+	}
+
+	private function path_valids(){
+		try
+		{
+			if (file_exists($this->config['phpbbwpunicorn_wp_path'].'/wp-load.php') &&
+				file_exists($this->config['phpbbwpunicorn_wp_path'].'/wp-includes/plugin.'.$this->phpEx) &&
+				file_exists($this->config['phpbbwpunicorn_wp_path'].'/wp-admin/includes/user.'.$this->phpEx) &&
+				file_exists($this->config['phpbbwpunicorn_wp_path'].'/wp-includes/capabilities.'.$this->phpEx)
+			)
+			{
+				return true;
+			}
+		}catch(Exception $err){
+			return false;
+		}
+		return false;
 	}
 }
