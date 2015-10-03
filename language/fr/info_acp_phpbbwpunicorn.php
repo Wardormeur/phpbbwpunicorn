@@ -45,12 +45,13 @@ $lang = array_merge($lang, array(
 	'ACP_PWU_SETTINGS'	=> 'PhpbbWPUnicorn Settings',
 	'ACP_SYNC'		=> 'Synchronize all users',
 	'LAST_TIME'		=> 'Last time',
-	'WP_PATH'			=> 'Wordpress path (where can be find the wp-config.php file',
+	'WP_PATH'			=> 'Wordpress absolute path',
 	'WP_CACHE'			=> 'Regenerate temporary Wordpress files',
+	'WP_CACHE_INFO'	=> '(shoud be done if the creation of user trigger an error, or if you changed the wordpress path)',
 	'WP_SYNC_AVATAR'			=> 'Use phpbb avatar for wordpress (will resync every user)',
-	
+
 	'WP_RESYNC'			=> 'Resynchronize every user (care with article ownership..)',
-	'WP_DEFAULT_ROLE'			=> 'Default role used in Wordpress (overwriting the one defined by Wordpress)',
+	'WP_DEFAULT_ROLE'			=> 'Default role used in Wordpress (overwriting Wordpress default)',
 	'SETTINGS_ERROR'		=> 'There was an error saving your settings. Please submit the back trace with your error report.',
 	'SETTINGS_SUCCESS'		=> 'The settings were successfully saved',
 	'WP_ASSOCIATED_ROLE'	=> 'Manual role association',

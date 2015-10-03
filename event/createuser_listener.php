@@ -4,7 +4,7 @@ namespace wardormeur\phpbbwpunicorn\event;
 
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use \wardormeur\phpbbwpunicorn\user;
-		
+
 
 class createuser_listener implements EventSubscriberInterface
 {
@@ -15,7 +15,7 @@ class createuser_listener implements EventSubscriberInterface
 			'core.ucp_prefs_post_update_data' =>'listen_update_wp_user'
 		);
     }
-	
+
 	public function __construct(
 		\phpbb\template\template $template,
 		\phpbb\user $user,
@@ -38,26 +38,27 @@ class createuser_listener implements EventSubscriberInterface
 		$this->php_ext		= $phpExt;
 
 	}
-	
+
 	/*Naming : WP functions use pattern wp_verb_compl, so we do a smhtin verb_wp_compl here when encapsulating*/
 	/*Doc : https://wiki.phpbb.com/Category:Functions_user*/
-	
+
 	public function listen_create_wp_user($event)
 	{
 		$local_user = $event['user_row'];
+		$local_user['user_id'] = $event['user_id'];
 		if( in_array($local_user['user_type'], array(0,3))){
-			$this->bridge_user->create_wp_user($event['user_row']);
+			$this->bridge_user->create_wp_user($local_user);
 		}
 	}
-	
-	
+
+
 	public function listen_update_wp_user($event)
 	{
 		//no check here, we suppose the user was allowed to be created
 		$this->bridge_user->update_wp_user($event['user_row']);
 	}
-	
-	
+
+
 }
 
 ?>

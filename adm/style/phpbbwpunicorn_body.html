@@ -8,26 +8,32 @@
 
 <form id="acp_board" method="post" action="{U_ACTION}">
 	<fieldset>
-		
+
 		<dl>
 			<dt><label for="wp_path">{L_WP_PATH}:</label></dt>
-			<dd><input type="text" name="wp_path" id="wp_path" value="{PATH}"></input></dd> 
-			
-			<dt><label for="wp_cache">{L_WP_CACHE}:</label></dt>
-			<dd><input type="checkbox" name="wp_cache" id="wp_cache"></input> {L_LAST_TIME} : {CACHE}</dd> 
-			
-			<dt><label for="wp_resync">{L_WP_RESYNC}:</label></dt>
-			<dd><input type="checkbox" name="wp_resync" id="wp_resync" ></input> {L_LAST_TIME} : {RESYNC}</dd> 
+			<dd><input type="text" name="wp_path" id="wp_path" value="{PATH}"></input></dd>
+
 			<!-- IF active -->
+			<dt><label for="wp_cache" alt="{L_WP_CACHE_INFO}">{L_WP_CACHE}:</label></dt>
+			<dd><input type="checkbox" name="wp_cache" id="wp_cache"></input> {L_LAST_TIME} : {CACHE}</dd>
+
+			<dt><label for="wp_resync">{L_WP_RESYNC}:</label></dt>
+			<dd><input type="checkbox" name="wp_resync" id="wp_resync" ></input> {L_LAST_TIME} : {RESYNC}</dd>
 			<dt><label for="wp_default_role">{L_WP_DEFAULT_ROLE}:</label></dt>
-			<dd><select name="wp_default_role">{DEFAULT_ROLE}</select></dd> 
-			
-			<dt><label for="wp_assoc_role">{L_WP_ASSOCIATED_ROLE} </label></dt>
+			<dd><select name="wp_default_role">{DEFAULT_ROLE}</select></dd>
+
+			<dt><label >{L_WP_ASSOCIATED_ROLE} </label></dt>
 			<!-- This CSS hack aint perfect, but it does the job? -->
-			<dd><label>PhpBB roles</label><label style="margin-left:100px;">WP roles</label></dd>
+			<dd><label>PhpBB roles</label><label >WP roles</label></dd>
 			<!-- BEGIN roles -->
-			<dd><select name="phpbb_role{roles.index}[]" multiple><!-- BEGIN phpbb --><option {roles.phpbb.selected} value="{roles.phpbb.ID}">{roles.phpbb.NAME}</option><!-- END phpbb --></select>
-			<select name="wp_role{roles.index}" ><!-- BEGIN wp --><option {roles.wp.selected} value="{roles.wp.ID}" >{roles.wp.NAME}</option><!-- END wp --></select></dd> 
+			<dd>
+				<select name="phpbb_role{roles.index}[]" multiple>
+					<!-- BEGIN phpbb --><option {roles.phpbb.selected} value="{roles.phpbb.ID}">{roles.phpbb.NAME}</option><!-- END phpbb -->
+				</select>
+				<select name="wp_role{roles.index}" >
+					<!-- BEGIN wp --><option {roles.wp.selected} value="{roles.wp.ID}" >{roles.wp.NAME}</option><!-- END wp -->
+				</select>
+			</dd>
 			<!-- END roles -->
 			<!-- ENDIF -->
 		</dl>
