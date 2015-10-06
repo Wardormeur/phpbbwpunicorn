@@ -46,7 +46,7 @@ class createuser_listener implements EventSubscriberInterface
 	{
 		$local_user = $event['user_row'];
 		$local_user['user_id'] = $event['user_id'];
-		if( in_array($local_user['user_type'], array(0,3))){
+		if( in_array($local_user['user_type'], array(0,1,3))){
 			$this->bridge_user->create_wp_user($local_user);
 		}
 	}
