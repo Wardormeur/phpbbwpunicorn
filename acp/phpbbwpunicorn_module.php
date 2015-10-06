@@ -43,6 +43,7 @@ class phpbbwpunicorn_module
 			require_once($this->config['phpbbwpunicorn_wp_path'].'/wp-includes/plugin.'.$phpEx);
 			require_once($this->config['phpbbwpunicorn_wp_path'].'/wp-admin/includes/user.'.$phpEx);
 			require_once($this->config['phpbbwpunicorn_wp_path'].'/wp-includes/capabilities.'.$phpEx);
+			require_once($this->config['phpbbwpunicorn_wp_path'].'/wp-includes/general-template.'.$phpEx);
 
 			$this->request->disable_super_globals();
 		}
