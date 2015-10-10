@@ -70,6 +70,8 @@ class user{
 
 		//Init data
 		$userdata['user_login'] =  $localuser['username'];
+		$userdata['user_nicename'] =  $localuser['username_clean'];
+		$userdata['display_name'] =  $localuser['username'];
 		$userdata['user_pass'] = wp_generate_password();
 		$userdata['role'] = $this->get_role($localuser);
 		$this->prepare_wp_user_array ($localuser,$userdata);
@@ -77,7 +79,7 @@ class user{
 		//wp_insert_user https://codex.wordpress.org/Function_Reference/wp_insert_user
 		//wp_insert_user doesnt apply role on creation, only update; thx doc not saying that
 		$wpuser = wp_insert_user($userdata);
-		wp_update_user( array ('ID' => $wpuser, 'role' => $userdata['role'] ) ) ;
+		wp_update_user( array ('ID' => $wpuser['ID'], 'role' => $userdata['role'] ) ) ;
 		// Update user meta information
 		update_user_meta($wpuser, 'phpbb_userid', $localuser['user_id']);
 		//used by old bridge (wp_phpbb_bridge by e-xtnd.it) to link wp_user to user; save it for compatibility :)
@@ -141,9 +143,8 @@ class user{
 
 		$wpuser = $this->prepare_wp_user_array($localuser,$wpuser);
 		$wpuser['role'] = $this->get_role($localuser);
-
-		//we dont reapply the default role for specific cases
-        wp_update_user($wpuser);
+		//We restrict to update the role to avoid triggering email for pwd ie
+		wp_update_user( array ('ID' => $wpuser['ID'], 'role' => $wpuser['role'] ) ) ;
 		//used by old bridge (wp_phpbb_bridge by e-xtnd.it) to link wp_user to user; save it for compatibility :)
 		update_user_meta($wpuser, 'phpbb_userid', $localuser['user_id']);
 
