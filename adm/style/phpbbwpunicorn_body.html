@@ -24,15 +24,19 @@
 
 			<dt><label >{L_WP_ASSOCIATED_ROLE} </label></dt>
 			<!-- This CSS hack aint perfect, but it does the job? -->
-			<dd><label>PhpBB roles</label><label >WP roles</label></dd>
+			<dd><label>PhpBB roles</label> <label style="margin-left:100px" >WP roles</label></dd>
 			<!-- BEGIN roles -->
 			<dd>
 				<select name="phpbb_role{roles.index}[]" multiple>
 					<!-- BEGIN phpbb --><option {roles.phpbb.selected} value="{roles.phpbb.ID}">{roles.phpbb.NAME}</option><!-- END phpbb -->
 				</select>
-				<select name="wp_role{roles.index}" >
-					<!-- BEGIN wp --><option {roles.wp.selected} value="{roles.wp.ID}" >{roles.wp.NAME}</option><!-- END wp -->
-				</select>
+				<!-- BEGIN wp -->
+					<!-- IF roles.wp.selected -->
+					<input  type="hidden" disabled="disabled" name="wp_role{roles.index}"
+						value="{roles.wp.ID}" >{roles.wp.NAME}
+					</input>
+					<!-- ENDIF -->
+				<!-- END wp -->
 			</dd>
 			<!-- END roles -->
 			<!-- ENDIF -->
