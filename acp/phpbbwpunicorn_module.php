@@ -115,16 +115,6 @@ class phpbbwpunicorn_module
 			$this->proxy->cache();
 		}
 
-		if($do_resync == 'on' && $this->path_valids() )
-		{
-			//resync every users
-			//we get the service from here in order to not block the regeneration of cache if it's none-working
-			$wp_user = $this->phpbb_container->get('wardormeur.phpbbwpunicorn.user');
-			$this->proxy->set_config($this->config);
-			$wp_user->sync_users();
-		}
-
-
 		//Association of roles/groups
 		//we count the number of roles and use the name of wp role to associate. A number wouldnt work as the wordpress isnt saving a proper id
 		// a table could have been a solution, but would let the config out of the config table
@@ -140,6 +130,21 @@ class phpbbwpunicorn_module
 				$temp_phpbb_r = $this->request->variable('phpbb_role'.$i, array(0));
 
 				$this->config->set('phpbbwpunicorn_role_'.$indexes[$i], serialize($temp_phpbb_r));
+			}
+		}
+
+		//Synchronisation once the association have been redefined AND asked for sync
+		if($do_resync == 'on' && $this->path_valids() )
+		{
+			//resync every users
+			//we get the service from here in order to not block the regeneration of cache if it's none-working
+			$wp_user = $this->phpbb_container->get('wardormeur.phpbbwpunicorn.user');
+			$this->proxy->set_config($this->config);
+			try{
+				$wp_user->sync_users();
+			}
+			catch(\Exception $e){
+				trigger_error("Something went wrong :() $e". adm_back_link());
 			}
 		}
 

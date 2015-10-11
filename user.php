@@ -70,7 +70,7 @@ class user{
 
 		//Init data
 		$userdata['user_login'] =  $localuser['username'];
-		$userdata['user_nicename'] =  $localuser['username_clean'];
+		$userdata['user_nicename'] =  $this->sanitize_username($localuser['username_clean']);
 		$userdata['display_name'] =  $localuser['username'];
 		$userdata['user_pass'] = wp_generate_password();
 		$userdata['role'] = $this->get_role($localuser);
@@ -78,14 +78,20 @@ class user{
 
 		//wp_insert_user https://codex.wordpress.org/Function_Reference/wp_insert_user
 		//wp_insert_user doesnt apply role on creation, only update; thx doc not saying that
-		$wpuser = wp_insert_user($userdata);
-		wp_update_user( array ('ID' => $wpuser['ID'], 'role' => $userdata['role'] ) ) ;
-		// Update user meta information
-		update_user_meta($wpuser, 'phpbb_userid', $localuser['user_id']);
-		//used by old bridge (wp_phpbb_bridge by e-xtnd.it) to link wp_user to user; save it for compatibility :)
+		$wpuserid = wp_insert_user($userdata);
+		if(!is_wp_error($wpuserid)){
+			wp_update_user( array ('ID' => $wpuserid, 'role' => $userdata['role'] ) ) ;
+			// Update user meta information
+			update_user_meta($wpuserid, 'phpbb_userid', $localuser['user_id']);
+			//used by old bridge (wp_phpbb_bridge by e-xtnd.it) to link wp_user to user; save it for compatibility :)
+		}
+		else{
+			throw new \Exception("Error Processing user update {$localuser['username']}", 1);
+
+		}
 		$this->request->disable_super_globals();//Gosh.. WP.
 
-		return $wpuser;
+		return $wpuserid;
 	}
 
 	private function get_role($localuser){
@@ -154,7 +160,7 @@ class user{
 	//get all users from phpbb & sync them into WP
 	public function sync_users(){
 		//restrict to "normal" users
-		$sql = 'SELECT user_id from '.USERS_TABLE. ' WHERE user_type = 0 OR user_type = 3';
+		$sql = 'SELECT user_id from '.USERS_TABLE. ' WHERE user_type = 0 OR user_type = 3 OR user_type = 1';
 		$result = $this->db->sql_query($sql);
 		/*recover every ID*/
 		while ($row = $this->db->sql_fetchrow($result))
@@ -185,9 +191,16 @@ class user{
 
 	public function get_wp_user($username)
 	{
-		return get_user_by( 'slug', $username );
+		return get_user_by( 'slug', $this->sanitize_username($username) );
+
 	}
 
+	public function sanitize_username($username){
+		//user WP sanitize_username
+		$username = sanitize_user($username, true);
+		//custom replacement of %20
+		return str_replace(' ','-',$username);
+	}
 
 	//exclude banned users on update
 
