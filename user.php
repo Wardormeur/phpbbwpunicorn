@@ -81,12 +81,13 @@ class user{
 		$wpuserid = wp_insert_user($userdata);
 		if(!is_wp_error($wpuserid)){
 			wp_update_user( array ('ID' => $wpuserid, 'role' => $userdata['role'] ) ) ;
-			// Update user meta information
-			update_user_meta($wpuserid, 'phpbb_userid', $localuser['user_id']);
-			//used by old bridge (wp_phpbb_bridge by e-xtnd.it) to link wp_user to user; save it for compatibility :)
+
+			//Add reference to our phpbb table
+			$sql = "UPDATE ".USERS_TABLE. " SET wordpress_id = $wpuserid WHERE user_id = {$localuser['user_id']}";
+			$this->db->sql_query($sql);
 		}
 		else{
-			throw new \Exception("Error Processing user update {$localuser['username']}", 1);
+			throw new \Exception("Error Processing user creation {$localuser['username']}, $wpuserid->get_error_codes()", 1);
 
 		}
 		$this->request->disable_super_globals();//Gosh.. WP.
@@ -128,12 +129,8 @@ class user{
 
 	private function prepare_wp_user_array($localuser,$wpuser)
 	{
-		$wpuser['user_url'] = $localuser['user_website'];
         $wpuser['user_email'] = $localuser['user_email'];
         $wpuser['nickname'] = $localuser['username'];
-        $wpuser['jabber'] = $localuser['user_jabber'];
-        $wpuser['aim'] = $localuser['user_aim'];
-        $wpuser['yim'] = $localuser['user_yim'];
         /*What else is mappable ? */
 
 		return $wpuser;
@@ -143,16 +140,11 @@ class user{
 	public function update_wp_user($localuser,$wpuser)
 	{
 		$this->request->enable_super_globals();//Gosh.. WP
-		//We need to recover the id from the Wordpress part
-		if($wpuser == null)
-			$wpuser = \get_wp_user($localuser->data['username_clean']);
 
 		$wpuser = $this->prepare_wp_user_array($localuser,$wpuser);
 		$wpuser['role'] = $this->get_role($localuser);
 		//We restrict to update the role to avoid triggering email for pwd ie
 		wp_update_user( array ('ID' => $wpuser['ID'], 'role' => $wpuser['role'] ) ) ;
-		//used by old bridge (wp_phpbb_bridge by e-xtnd.it) to link wp_user to user; save it for compatibility :)
-		update_user_meta($wpuser, 'phpbb_userid', $localuser['user_id']);
 
 		$this->request->disable_super_globals();//Gosh.. WP.
 	}
@@ -160,38 +152,35 @@ class user{
 	//get all users from phpbb & sync them into WP
 	public function sync_users(){
 		//restrict to "normal" users
-		$sql = 'SELECT user_id from '.USERS_TABLE. ' WHERE user_type = 0 OR user_type = 3 OR user_type = 1';
+		$sql = 'SELECT user_id, wordpress_id from '.USERS_TABLE. ' WHERE (user_type = 0 OR user_type = 3 OR user_type = 1) AND user_id != 1';
 		$result = $this->db->sql_query($sql);
 		/*recover every ID*/
 		while ($row = $this->db->sql_fetchrow($result))
 		{
-			$add_id[] = (int) $row['user_id'];
+			$phpbb_user[] = $row;
 		}
 		$this->db->sql_freeresult($result);
-
 		$this->request->enable_super_globals();//Gosh.. WP.
 		/*get all real user*/
-		foreach($add_id as $user_id)
+		foreach($phpbb_user as $user)
 		{
 			/*https://www.phpbb.de/infos/3.1/xref/nav.html?phpbb/user_loader.php.html#get_user*/
 			//yes, i know, im requesting twice the user, but fuck it, im lazy.
 			//The less SQL and the more core function, the more robust?
-			$phpbbuser = $this->user_loader->get_user($user_id, true);
-			$wpuser = $this->get_wp_user($phpbbuser['username_clean']);
-			if($wpuser == null){
+			$phpbbuser = $this->user_loader->get_user($user['user_id'], true);
+			if($user['wordpress_id'] == null){
 				$this->create_wp_user($phpbbuser);
 			}else{
 				//lets be sure it's updated
+				$wpuser = $this->get_wp_user($user['wordpress_id']);
 				$this->update_wp_user($phpbbuser,$wpuser->to_array());
 			}
 		}
-		$this->request->disable_super_globals();//Gosh.. WP.
-
 	}
 
-	public function get_wp_user($username)
+	public function get_wp_user($user_id)
 	{
-		return get_user_by( 'slug', $this->sanitize_username($username) );
+		return get_user_by( 'id', $user_id );
 
 	}
 
