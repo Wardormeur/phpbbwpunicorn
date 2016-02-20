@@ -1,5 +1,9 @@
 <!-- INCLUDE overall_header.html -->
-
+<style>
+	dt{
+		clear:both;
+	}
+</style>
 <h1>{L_ACP_PWU_SETTINGS}</h1>
 
 <!-- IF S_SAVED -->
@@ -39,8 +43,20 @@
 				<!-- END wp -->
 			</dd>
 			<!-- END roles -->
+
+			<dt><label for="wp_manual_sync" alt="{L_WP_MANUAL_SYNC}">{L_WP_MANUAL_SYNC}:</label></dt>
+			<dd><input type="text" name="wp_manual_sync" id="wp_manual_sync" placeholder="{L_WP_USERNAME}"></input>
+				  <!-- New -->
+					<input type="text" name="wp_manual_sync_new" id="wp_manual_sync_new" placeholder="{L_WP_NEW_USERNAME}"></input>
+					<!-- Existing -->
+					<input type="text" name="wp_manual_sync_existing" id="wp_manual_sync_existing" placeholder="{L_WP_EXISTING_USERNAME}"></input>
+					</dd>
+
 			<!-- ENDIF -->
+
 		</dl>
+
+
 		<p class="submit-buttons">
 			<input class="button1" type="submit" id="submit" name="submit" value="{L_SUBMIT}" />&nbsp;
 		</p>

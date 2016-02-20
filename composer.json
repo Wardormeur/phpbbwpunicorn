@@ -3,7 +3,7 @@
     "type": "phpbb-extension",
     "description": "Allows functionnalities to be shared between wordpress & phpbb 3.1",
     "homepage": "http://github.com/wardormeur/phpbbwpunicorn",
-    "version": "0.0.1",
+    "version": "0.0.2",
     "time": "2015-02-09",
     "keywords": [
         "phpbb",
@@ -20,7 +20,7 @@
         }
     ],
     "require": {
-        "php": ">=5.3.3",
+        "php": ">=5.4",
 		"nikic/php-parser": "0.9.x-dev"
     },
     "require-dev": {
@@ -30,7 +30,7 @@
         "display-name": "PhpBBWP Unicorn",
         "soft-require": {
             "phpbb/phpbb": ">=3.1.2,<3.2.*@dev"
-        }    
+        }
 	}
-	
+
 }

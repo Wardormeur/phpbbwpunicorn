@@ -23,6 +23,7 @@ class user{
 		$this->request = $request;
 		$this->user = $user;
 		$this->user_loader = $user_loader;
+		$this->errors = [];
 
 		$this->phpbb_phpEx = $phpEx;
 		$this->phpbb_root_path = $phpbb_root_path;
@@ -30,8 +31,12 @@ class user{
 		/*Require WP includes*/
 		$path_to_wp = $config['phpbbwpunicorn_wp_path'];
 		define( 'WP_USE_THEMES', FALSE );
-		define( 'SHORTINIT', TRUE );
+		if(!defined('SHORTINIT'))
+		{
+			define( 'SHORTINIT', TRUE );
+		}
 
+		//TODO : check active as this is instanciated on the plugin activation
 		$this->request->enable_super_globals();//Gosh.. WP.
 		require_once( $path_to_wp.'/wp-load.'.$phpEx );
 
@@ -47,11 +52,11 @@ class user{
 		require_once($path_to_wp.'/wp-includes/pluggable.'.$phpEx);
 		require_once($path_to_wp.'/wp-includes/kses.'.$phpEx);
 
-
-		require_once($this->phpbb_root_path . 'cache/phpbbwpunicorn_user.'.$this->phpbb_phpEx);
-
-
-		require_once($this->phpbb_root_path . 'cache/phpbbwpunicorn_formatting.'.$this->phpbb_phpEx);
+		if(file_exists($this->phpbb_root_path . 'cache/phpbbwpunicorn_user.'.$this->phpbb_phpEx) &&
+		file_exists($this->phpbb_root_path . 'cache/phpbbwpunicorn_formatting.'.$this->phpbb_phpEx)){
+			require_once($this->phpbb_root_path . 'cache/phpbbwpunicorn_user.'.$this->phpbb_phpEx);
+			require_once($this->phpbb_root_path . 'cache/phpbbwpunicorn_formatting.'.$this->phpbb_phpEx);
+		}
 
 		$this->request->disable_super_globals();
 
@@ -63,7 +68,11 @@ class user{
 
 	}
 
-
+	/**
+	 * [create_wp_user : create a WP user based upon an arrayish PHPPBUser]
+	 * @param  [PHPPBUser] $localuser [description]
+	 * @return [ID]            [wpuserid]
+	 */
 	public function create_wp_user($localuser)
 	{
 		$this->request->enable_super_globals();//Gosh.. WP.
@@ -87,14 +96,19 @@ class user{
 			$this->db->sql_query($sql);
 		}
 		else{
-			throw new \Exception("Error Processing user creation {$localuser['username']}, $wpuserid->get_error_codes()", 1);
-
+			$this->errors['users'][] = $localuser['username'];
 		}
 		$this->request->disable_super_globals();//Gosh.. WP.
 
 		return $wpuserid;
 	}
 
+	/**
+	 * [get_role for a specific user, based upon his user_group, ordered by priority (1rst admin->modo->user)
+	 * As Wp only supports only 1 group, it only select the more important one]
+	 * @param  [type] $localuser [description]
+	 * @return [type]            [description]
+	 */
 	private function get_role($localuser){
 		$role = $this->config['phpbbwpunicorn_wp_default_role'];
 		//TODO: this actually shows a bad design, requiring me to loop over roles whereas a bi-directionnal array could have mesaved from that
@@ -127,7 +141,7 @@ class user{
 	}
 
 
-	private function prepare_wp_user_array($localuser,$wpuser)
+	private function prepare_wp_user_array($localuser, $wpuser)
 	{
         $wpuser['user_email'] = $localuser['user_email'];
         $wpuser['nickname'] = $localuser['username'];
@@ -137,19 +151,24 @@ class user{
 	}
 
 
-	public function update_wp_user($localuser,$wpuser)
+	public function update_wp_user($localuser, $wpuser)
 	{
 		$this->request->enable_super_globals();//Gosh.. WP
 
-		$wpuser = $this->prepare_wp_user_array($localuser,$wpuser);
+		$wpuser = $this->prepare_wp_user_array($localuser, $wpuser);
 		$wpuser['role'] = $this->get_role($localuser);
 		//We restrict to update the role to avoid triggering email for pwd ie
 		wp_update_user( array ('ID' => $wpuser['ID'], 'role' => $wpuser['role'] ) ) ;
+
+		//Jut to be sure, update the reference to our phpbb table
+		$sql = "UPDATE ".USERS_TABLE. " SET wordpress_id =  {$wpuser['ID']} WHERE user_id = {$localuser['user_id']}";
+		$this->db->sql_query($sql);
 
 		$this->request->disable_super_globals();//Gosh.. WP.
 	}
 
 	//get all users from phpbb & sync them into WP
+	//TODO : support sync by username ? unsafe/recovery
 	public function sync_users(){
 		//restrict to "normal" users
 		$sql = 'SELECT user_id, wordpress_id from '.USERS_TABLE. ' WHERE (user_type = 0 OR user_type = 3 OR user_type = 1) AND user_id != 1';
@@ -169,19 +188,26 @@ class user{
 			//The less SQL and the more core function, the more robust?
 			$phpbbuser = $this->user_loader->get_user($user['user_id'], true);
 			if($user['wordpress_id'] == null){
-				$this->create_wp_user($phpbbuser);
+				// !username_exists($phpbbuser['username'])  &&
+				//the function to check if an user exists are having, again, the same name than the phpbb one's.
+				try{
+					$this->create_wp_user($phpbbuser);
+				}catch(\Exception $e){
+					//Just to be sure we don't break the loop
+				}
 			}else{
 				//lets be sure it's updated
 				$wpuser = $this->get_wp_user($user['wordpress_id']);
 				$this->update_wp_user($phpbbuser,$wpuser->to_array());
 			}
 		}
+		$this->check_errors();
+
 	}
 
-	public function get_wp_user($user_id)
+	public function get_wp_user($data, $slug = 'id')
 	{
-		return get_user_by( 'id', $user_id );
-
+		return get_user_by( $slug, $data );
 	}
 
 	public function sanitize_username($username){
@@ -191,9 +217,27 @@ class user{
 		return str_replace(' ','-',$username);
 	}
 
-	//exclude banned users on update
+	public function get_phpbb_user_by_username($username){
+		$ids = null;
+		$usernames = [$username];
+		$return = false;
+		user_get_id_name($ids, $usernames , false);
+		if(sizeof($ids)){
+			$return = $this->user_loader->get_user($ids[0], false);
+			$return['user_id'] = $ids[0];
+		}
+		return $return;
+	}
 
-	//roles ? default + compare
+	private function check_errors(){
+		//TODO : support more type of errors?
+		//TODO : log it for user creation
+		if(sizeof($this->errors) > 0){
+			$error_users = implode(', ',$this->errors['users']);
+			trigger_error("Error Processing user sync, please sync manually the following users : $error_users ");
+		}
+		$this->errors = [];
+	}
 
 }
 ?>
