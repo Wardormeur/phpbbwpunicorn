@@ -53,6 +53,10 @@ $lang = array_merge($lang, array(
 	'WP_RESYNC'			=> 'Resynchronize every user (care with article ownership..)',
 	'WP_DEFAULT_ROLE'			=> 'Default role used in Wordpress (overwriting Wordpress default)',
 	'SETTINGS_ERROR'		=> 'There was an error saving your settings. Please submit the back trace with your error report.',
-	'SETTINGS_SUCCESS'		=> 'The settings were successfully saved',
-	'WP_ASSOCIATED_ROLE'	=> 'Manual role association',
+	'SETTINGS_SUCCESS'		=> 'Les options ont été mises à jour avec succes',
+	'WP_ASSOCIATED_ROLE'	=> 'Association manuelle des roles',
+	'WP_MANUAL_SYNC' => 'Association manuelle',
+	'WP_EXSTING_USERNAME' => 'Pseudo d\'utilisateur wordpress existant',
+	'WP_NEW_USERNAME' =>'Nouvel utilisateur wordpress',
+	'WP_USERNAME' => 'Utilisateur phpbb'
 ));

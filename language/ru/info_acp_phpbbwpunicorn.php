@@ -52,5 +52,9 @@ $lang = array_merge($lang, array(
 	'WP_DEFAULT_ROLE'			=> 'Роль по умолчанию в Wordpress (переназначит указанную в Wordpress)',
 	'SETTINGS_ERROR'		=> 'Возникла ошибка при сохранении настроек. Пожалуйста, отправте отчет об ошибке.',
 	'SETTINGS_SUCCESS'		=> 'Настройки успешно сохранены',
-	'WP_ASSOCIATED_ROLE'	=> 'Ручная ассоциация ролей'
+	'WP_ASSOCIATED_ROLE'	=> 'Ручная ассоциация ролей',
+	'WP_MANUAL_SYNC' => 'Manual association',
+	'WP_EXSTING_USERNAME' => 'Existing wordpress username',
+	'WP_NEW_USERNAME' => 'New wordpress user',
+	'WP_USERNAME' => 'Existing phpbb user'
 	));

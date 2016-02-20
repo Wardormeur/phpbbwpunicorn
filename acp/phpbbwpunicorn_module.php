@@ -1,10 +1,8 @@
 <?php
 /**
 *
-* @package Ban Hammer
-* @copyright (c) 2015 phpBB Modders <https://phpbbmodders.net/>
-* @author Jari Kanerva <jari@tumba25.net>
-* @license http://opensource.org/licenses/gpl-2.0.php GNU General Public License v2
+* @package phpbbwpunicorn
+* @author Wardormeur
 *
 */
 
@@ -22,20 +20,21 @@ class phpbbwpunicorn_module
 
 	function main($id, $mode)
 	{
-		global $request, $template, $user, $phpbb_container,$phpbb_root_path,$config,$phpEx;
+		global $request, $template, $user, $phpbb_container, $phpbb_root_path, $config, $phpEx;
 		$this->request = $request;
 		$this->config = $config;
 		$this->user = $user;
 		$this->phpbb_container = $phpbb_container;
 		$this->template = $template;
 		$this->proxy = $this->phpbb_container->get('wardormeur.phpbbwpunicorn.proxy');
+		$this->bridge = $this->phpbb_container->get('wardormeur.phpbbwpunicorn.user');
+		$this->user_loader = $this->phpbb_container->get('user_loader');
 		$this->phpbb_root_path = $phpbb_root_path;
 		$this->phpEx = $phpEx;
-		$this->active = false;
+		$this->active = $this->path_valids() && $this->cache_generated();
 		//required to list the wordpress roles avaialbes
 
-		if($this->path_valids()){
-			$this->active = true;
+		if($this->active){
 			$this->request->enable_super_globals();
 			define( 'SHORTINIT', TRUE );
 
@@ -44,6 +43,19 @@ class phpbbwpunicorn_module
 			require_once($this->config['phpbbwpunicorn_wp_path'].'/wp-admin/includes/user.'.$phpEx);
 			require_once($this->config['phpbbwpunicorn_wp_path'].'/wp-includes/capabilities.'.$phpEx);
 			require_once($this->config['phpbbwpunicorn_wp_path'].'/wp-includes/general-template.'.$phpEx);
+
+			//since 4.4, classes are externalised
+			//https://github.com/WordPress/WordPress/blob/master/wp-includes/class-wp-roles.php
+			//And that's why I'd prefer to stop dev for <v4.4, because it's a fuckking mess whereas there is a rest API on 4.4+
+			if(!class_exists('WP_Role') && !class_exists('WP_Roles') && !class_exists('WP_User')){
+				//TODO: move bridge-related functions to a single fiel to avoid multiple injections of the same file
+				require_once($this->phpbb_root_path . 'cache/phpbbwpunicorn_user.'.$phpEx);
+				require_once($this->phpbb_root_path . 'cache/phpbbwpunicorn_formatting.'.$phpEx);
+				require_once($this->config['phpbbwpunicorn_wp_path'].'/wp-includes/class-wp-role.'.$phpEx);
+				require_once($this->config['phpbbwpunicorn_wp_path'].'/wp-includes/class-wp-roles.'.$phpEx);
+				require_once($this->config['phpbbwpunicorn_wp_path'].'/wp-includes/class-wp-user.'.$phpEx);
+				require_once($this->config['phpbbwpunicorn_wp_path'].'/wp-includes/rest-api.'.$phpEx);
+			}
 
 			$this->request->disable_super_globals();
 		}
@@ -66,10 +78,6 @@ class phpbbwpunicorn_module
 
 	}
 
-	private function process(){
-
-	}
-
 	private function save(){
 		// Test if form key is valid
 		if (!check_form_key('unicornfart'))
@@ -80,14 +88,22 @@ class phpbbwpunicorn_module
 		$recache = $this->request->variable('wp_cache','');
 		$resync = $this->request->variable('wp_resync','');
 		$default_role =  $this->request->variable('wp_default_role','');
+		$sync_phpbb_username = $this->request->variable('wp_manual_sync','');
+		$sync_wp_new_username = $this->request->variable('wp_manual_sync_new','');
+		$sync_wp_existing_username = $this->request->variable('wp_manual_sync_existing','');
 
 		//
 		$wp_path_changed = $this->config['phpbbwpunicorn_wp_path'] != $wp_path ? true:false;
-		//we set the last dates of sync
-		$do_recache = $recache == "on" ? true:false;
-		$recache = $do_recache ? time():$this->config['phpbbwpunicorn_wp_cache'];
+		//actions to do
+		$do_recache = ($recache == "on" || $wp_path_changed || ($this->path_valids() && !$this->cache_generated()) ) ? true:false;
 		$do_resync = $resync == "on" ? true:false;
+		$do_manual_sync = $sync_phpbb_username && ($sync_wp_new_username || $sync_wp_existing_username);
+
+		//display values
+		//we set the last dates of sync
+		$recache = $do_recache ? time():$this->config['phpbbwpunicorn_wp_cache'];
 		$resync = $do_resync ? time():$this->config['phpbbwpunicorn_wp_resync'];
+
 
 		$settings = array(
 			'phpbbwpunicorn_wp_path'		=> $wp_path,
@@ -97,9 +113,9 @@ class phpbbwpunicorn_module
 		);
 
 		//We savvvve
-		foreach($settings as $key=>$value)
+		foreach($settings as $key => $value)
 		{
-			$this->config->set($key,$value);
+			$this->config->set($key, $value);
 		}
 
 		//process actions
@@ -108,8 +124,7 @@ class phpbbwpunicorn_module
 			$default_role = $this->config['phpbbwpunicorn_wp_default_role'];
 		}
 
-		if($this->path_valids() &&
-			($wp_path_changed  || $do_recache == 'on')){
+		if($this->path_valids() && $do_recache ){
 			//we need to recache, since the wp_path has changed
 			$this->proxy->set_config($this->config);
 			$this->proxy->cache();
@@ -134,19 +149,38 @@ class phpbbwpunicorn_module
 		}
 
 		//Synchronisation once the association have been redefined AND asked for sync
-		if($do_resync == 'on' && $this->path_valids() )
+		if($do_resync && $this->active )
 		{
 			//resync every users
 			//we get the service from here in order to not block the regeneration of cache if it's none-working
-			$wp_user = $this->phpbb_container->get('wardormeur.phpbbwpunicorn.user');
 			$this->proxy->set_config($this->config);
 			try{
-				$wp_user->sync_users();
+				$this->bridge->sync_users();
 			}
 			catch(\Exception $e){
-				trigger_error("Something went wrong :() $e". adm_back_link());
+				trigger_error("Something went utterly wrong :() $e". adm_back_link());
 			}
 		}
+
+		if($do_manual_sync && $this->active){
+
+				$phpbbuser = $this->bridge->get_phpbb_user_by_username($sync_phpbb_username);
+			if($phpbbuser){
+				if($sync_wp_new_username){
+					$phpbbuser['username'] = $sync_wp_new_username;
+					$phpbbuser['username_clean'] = $this->bridge->sanitize_username($sync_wp_new_username);
+					var_dump($phpbbuser);
+					$this->bridge->create_wp_user($phpbbuser);
+				}else
+				if($sync_wp_existing_username){
+					$wpuser = $this->bridge->get_wp_user($sync_wp_existing_username, 'slug');
+					$this->bridge->update_wp_user($phpbbuser, $wpuser->to_array());
+				}
+			}else{
+				trigger_error("PHPBB user not found for username $sync_phpbb_username while manually syncing ", E_USER_WARNING);
+			}
+		}
+
 
 		if(!$this->path_valids()){
 			trigger_error($this->user->lang['FORM_INVALID'] . adm_back_link($this->u_action), E_USER_WARNING);
@@ -258,6 +292,22 @@ class phpbbwpunicorn_module
 				file_exists($this->config['phpbbwpunicorn_wp_path'].'/wp-includes/plugin.'.$this->phpEx) &&
 				file_exists($this->config['phpbbwpunicorn_wp_path'].'/wp-admin/includes/user.'.$this->phpEx) &&
 				file_exists($this->config['phpbbwpunicorn_wp_path'].'/wp-includes/capabilities.'.$this->phpEx)
+			)
+			{
+				return true;
+			}
+		}catch(Exception $err){
+			return false;
+		}
+		return false;
+	}
+
+	private function cache_generated(){
+		try
+		{
+			if (
+				file_exists($this->phpbb_root_path . 'cache/phpbbwpunicorn_user.'.$this->phpEx) &&
+				file_exists($this->phpbb_root_path . 'cache/phpbbwpunicorn_formatting.'.$this->phpEx)
 			)
 			{
 				return true;
