@@ -17,6 +17,7 @@ class user{
 	{
 		global $phpbb_container;
 
+		//TODO: remove config from here
 		$this->config = $config;
 		$this->db = $db;
 		$this->phpbb_user = $user;
@@ -48,11 +49,28 @@ class user{
 		require_once($path_to_wp.'/wp-includes/pluggable.'.$phpEx);
 		require_once($path_to_wp.'/wp-includes/kses.'.$phpEx);
 
-		if(file_exists($this->phpbb_root_path . 'cache/phpbbwpunicorn_user.'.$this->phpEx) &&
-		file_exists($this->phpbb_root_path . 'cache/phpbbwpunicorn_formatting.'.$this->phpEx)){
+		require_once($this->config['phpbbwpunicorn_wp_path'].'/wp-includes/plugin.'.$phpEx);
+		require_once($this->config['phpbbwpunicorn_wp_path'].'/wp-admin/includes/user.'.$phpEx);
+		require_once($this->config['phpbbwpunicorn_wp_path'].'/wp-includes/capabilities.'.$phpEx);
+		require_once($this->config['phpbbwpunicorn_wp_path'].'/wp-includes/general-template.'.$phpEx);
+
+		if(file_exists($this->phpbb_root_path . 'cache/phpbbwpunicorn_user.'.$this->phpbb_phpEx) &&
+		file_exists($this->phpbb_root_path . 'cache/phpbbwpunicorn_formatting.'.$this->phpbb_phpEx)){
 			require_once($this->phpbb_root_path . 'cache/phpbbwpunicorn_user.'.$this->phpbb_phpEx);
 			require_once($this->phpbb_root_path . 'cache/phpbbwpunicorn_formatting.'.$this->phpbb_phpEx);
 		}
+
+		//since 4.4, classes are externalised
+		//https://github.com/WordPress/WordPress/blob/master/wp-includes/class-wp-roles.php
+		//And that's why I'd prefer to stop dev for <v4.4, because it's a fuckking mess whereas there is a rest API on 4.4+
+		if(!class_exists('WP_Role') && !class_exists('WP_Roles') && !class_exists('WP_User')){
+			//TODO: move bridge-related functions to a single fiel to avoid multiple injections of the same file
+			require_once($this->config['phpbbwpunicorn_wp_path'].'/wp-includes/class-wp-role.'.$this->phpbb_phpEx);
+			require_once($this->config['phpbbwpunicorn_wp_path'].'/wp-includes/class-wp-roles.'.$this->phpbb_phpEx);
+			require_once($this->config['phpbbwpunicorn_wp_path'].'/wp-includes/class-wp-user.'.$this->phpbb_phpEx);
+			require_once($this->config['phpbbwpunicorn_wp_path'].'/wp-includes/rest-api.'.$this->phpbb_phpEx);
+		}
+
 
 		$this->request->disable_super_globals();
 
@@ -84,13 +102,11 @@ class user{
 		//wp_insert_user https://codex.wordpress.org/Function_Reference/wp_insert_user
 		//wp_insert_user doesnt apply role on creation, only update; thx doc not saying that
 		$wpuserid = wp_insert_user($userdata);
-		var_dump($wpuserid);
 		if(!is_wp_error($wpuserid)){
 			wp_update_user( array ('ID' => $wpuserid, 'role' => $userdata['role'] ) ) ;
 
 			//Add reference to our phpbb table
 			$sql = "UPDATE ".USERS_TABLE. " SET wordpress_id = $wpuserid WHERE user_id = {$localuser['user_id']}";
-			var_dump($sql);
 			$this->db->sql_query($sql);
 		}
 		else{
@@ -113,29 +129,31 @@ class user{
 		//stock every role into a single multi dim array?
 		$potential_roles[] = $role?$role:[];
 		$roles = new \WP_Roles();
+		$user_groups =  group_memberships(false,$localuser['user_id']);
+		//We default the returned role to the config's default one
+		$selected_role = $role;
 
-
-		foreach(array_reverse(array_keys($roles->roles)) as $wp_role)// we reverse it to put the importants roles (as admin/editor) as the last choice
-		{
-			$phpbb_roles = unserialize($this->config['phpbbwpunicorn_role_'.$wp_role]);
-			foreach($phpbb_roles as $phpbb_role)
+		if($user_groups){
+			//pooooooooooor design, gush.
+			foreach(array_reverse(array_keys($roles->roles)) as $wp_role)// we reverse it to put the importants roles (as admin/editor) as the last choice
 			{
-
-				$user_groups =  group_memberships(false,$localuser['user_id']);
-
-				foreach($user_groups as $user_group)
+				$phpbb_roles = unserialize($this->config['phpbbwpunicorn_role_'.$wp_role]);
+				foreach($phpbb_roles as $phpbb_role)
 				{
-					if ($phpbb_role == $user_group["group_id"])
+					foreach($user_groups as $user_group)
 					{
-						$potential_roles[] = $wp_role;
+						if ($phpbb_role == $user_group["group_id"])
+						{
+							$potential_roles[] = $wp_role;
+						}
 					}
 				}
 			}
+			//Which one are we supposed to return? Lol. first of order per ID Desc?
+			$selected_role = $potential_roles[count($potential_roles)-1];
 		}
-		//pooooooooooor design, gush.
-		//Which one are we supposed to return? Lol. first of order per ID Desc?
 
-		return $potential_roles[count($potential_roles)-1];
+		return $selected_role;
 	}
 
 
@@ -165,10 +183,17 @@ class user{
 		$this->request->disable_super_globals();//Gosh.. WP.
 	}
 
-	//get all users from phpbb & sync them into WP
-	public function sync_users(){
+	/**
+	 * function to resynchronize every field of either every user, or a selected list; into WP
+	 * @param  [array] $user_id_ary [selected list of users]
+	 */
+	public function sync_users($user_id_ary = null){
+		//By default take every user
 		//restrict to "normal" users
 		$sql = 'SELECT user_id, wordpress_id from '.USERS_TABLE. ' WHERE (user_type = 0 OR user_type = 3 OR user_type = 1) AND user_id != 1';
+		if($user_id_ary != null){
+			$sql .=' AND '. $this->db->sql_in_set('user_id', $user_id_ary);
+		}
 		$result = $this->db->sql_query($sql);
 		/*recover every ID*/
 		while ($row = $this->db->sql_fetchrow($result))
@@ -207,6 +232,11 @@ class user{
 		return get_user_by( $slug, $data );
 	}
 
+  /**
+   * Compatible function for sanitizing username between WP&PHPBB
+   * @param  [String] $username [description]
+   * @return [String] cleanedUsername [description]
+   */
 	public function sanitize_username($username){
 		//user WP sanitize_username
 		$username = sanitize_user($username, true);
@@ -214,19 +244,26 @@ class user{
 		return str_replace(' ','-',$username);
 	}
 
+  /**
+   * Returns a SINGLE user corresponding to the username
+   * @param  [String] $username [description]
+   * @return [PHPBBUser]           [description]
+   */
 	public function get_phpbb_user_by_username($username){
 		$ids = null;
 		$usernames = [$username];
 		$return = false;
 		user_get_id_name($ids, $usernames , false);
-		if(sizeof($ids)){
-			var_dump($ids);
+		if(sizeof($ids) === 1){
 			$return = $this->user_loader->get_user($ids[0], false);
 			$return['user_id'] = $ids[0];
 		}
 		return $return;
 	}
 
+  /**
+   * Check errors returned when doing sync
+   */
 	private function check_errors(){
 		//TODO : support more type of errors?
 		//TODO : log it for user creation
@@ -236,6 +273,15 @@ class user{
 		}
 		$this->errors = [];
 	}
+
+	/**
+	 * Return WP roles as WP Object
+	 * @return [WPRole] [description]
+	 */
+	public function get_roles(){
+		return new \WP_Roles();
+	}
+
 
 }
 ?>

@@ -27,7 +27,6 @@ class phpbbwpunicorn_module
 		$this->phpbb_container = $phpbb_container;
 		$this->template = $template;
 		$this->proxy = $this->phpbb_container->get('wardormeur.phpbbwpunicorn.proxy');
-		$this->bridge = $this->phpbb_container->get('wardormeur.phpbbwpunicorn.user');
 		$this->user_loader = $this->phpbb_container->get('user_loader');
 		$this->phpbb_root_path = $phpbb_root_path;
 		$this->phpEx = $phpEx;
@@ -35,29 +34,7 @@ class phpbbwpunicorn_module
 		//required to list the wordpress roles avaialbes
 
 		if($this->active){
-			$this->request->enable_super_globals();
-			define( 'SHORTINIT', TRUE );
-
-			require_once($this->config['phpbbwpunicorn_wp_path'].'/wp-load.php');
-			require_once($this->config['phpbbwpunicorn_wp_path'].'/wp-includes/plugin.'.$phpEx);
-			require_once($this->config['phpbbwpunicorn_wp_path'].'/wp-admin/includes/user.'.$phpEx);
-			require_once($this->config['phpbbwpunicorn_wp_path'].'/wp-includes/capabilities.'.$phpEx);
-			require_once($this->config['phpbbwpunicorn_wp_path'].'/wp-includes/general-template.'.$phpEx);
-
-			//since 4.4, classes are externalised
-			//https://github.com/WordPress/WordPress/blob/master/wp-includes/class-wp-roles.php
-			//And that's why I'd prefer to stop dev for <v4.4, because it's a fuckking mess whereas there is a rest API on 4.4+
-			if(!class_exists('WP_Role') && !class_exists('WP_Roles') && !class_exists('WP_User')){
-				//TODO: move bridge-related functions to a single fiel to avoid multiple injections of the same file
-				require_once($this->phpbb_root_path . 'cache/phpbbwpunicorn_user.'.$phpEx);
-				require_once($this->phpbb_root_path . 'cache/phpbbwpunicorn_formatting.'.$phpEx);
-				require_once($this->config['phpbbwpunicorn_wp_path'].'/wp-includes/class-wp-role.'.$phpEx);
-				require_once($this->config['phpbbwpunicorn_wp_path'].'/wp-includes/class-wp-roles.'.$phpEx);
-				require_once($this->config['phpbbwpunicorn_wp_path'].'/wp-includes/class-wp-user.'.$phpEx);
-				require_once($this->config['phpbbwpunicorn_wp_path'].'/wp-includes/rest-api.'.$phpEx);
-			}
-
-			$this->request->disable_super_globals();
+			$this->bridge = $this->phpbb_container->get('wardormeur.phpbbwpunicorn.user');
 		}
 		$this->user->add_lang('acp/groups');
 		$this->page_title = $this->user->lang['ACP_PWU_TITLE'];
@@ -135,7 +112,7 @@ class phpbbwpunicorn_module
 		// a table could have been a solution, but would let the config out of the config table
 		if($this->active){
 			$this->request->enable_super_globals();
-			$roles = new \WP_Roles();
+			$roles = $this->bridge->get_roles();
 			$this->request->disable_super_globals();
 			$index = count($roles->roles);
 			$indexes = array_keys($roles->roles);
@@ -197,7 +174,7 @@ class phpbbwpunicorn_module
 
 		if($this->active){
 			$this->request->enable_super_globals();
-			$roles = new \WP_Roles();
+			$roles = $this->bridge->get_roles();
 			$this->request->disable_super_globals();
 
 			foreach($roles->roles as $role=>$roledata){
@@ -270,6 +247,7 @@ class phpbbwpunicorn_module
 		// Don't display any of the default groups
 		$ignore_groups = array('BOTS', 'GUESTS');
 
+		//Todo : use query builder
 		$sql = 'SELECT group_name, group_id, group_type
 			FROM ' . GROUPS_TABLE . '
 			WHERE ' . $db->sql_in_set('group_name', $ignore_groups, true) . '
@@ -285,6 +263,12 @@ class phpbbwpunicorn_module
 		return $groups;
 	}
 
+
+
+ /**
+  * Check if it's possible to generate cache files based upon user config
+  * @return [Boolean] [true/false]
+  */
 	private function path_valids(){
 		try
 		{
@@ -302,19 +286,26 @@ class phpbbwpunicorn_module
 		return false;
 	}
 
-	private function cache_generated(){
-		try
-		{
-			if (
-				file_exists($this->phpbb_root_path . 'cache/phpbbwpunicorn_user.'.$this->phpEx) &&
-				file_exists($this->phpbb_root_path . 'cache/phpbbwpunicorn_formatting.'.$this->phpEx)
-			)
+
+	 /**
+	  * Check if generated files exists
+	  * @return [Boolean] [true/false]
+	  */
+		private function cache_generated(){
+			try
 			{
-				return true;
+				if (
+					file_exists($this->phpbb_root_path . 'cache/phpbbwpunicorn_user.'.$this->phpEx) &&
+					file_exists($this->phpbb_root_path . 'cache/phpbbwpunicorn_formatting.'.$this->phpEx)
+				)
+				{
+					return true;
+				}
+			}catch(Exception $err){
+				return false;
 			}
-		}catch(Exception $err){
 			return false;
 		}
-		return false;
-	}
+
+
 }

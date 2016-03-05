@@ -12,8 +12,11 @@ class createuser_listener implements EventSubscriberInterface
     {
         return array(
             'core.user_add_after' => 'listen_create_wp_user',
-			'core.ucp_prefs_post_update_data' =>'listen_update_wp_user'
-		);
+			      'core.ucp_prefs_post_update_data' => 'listen_update_wp_user',
+            'core.group_add_user_after' => 'listen_group_add_user',
+            'core.group_delete_user_after' => 'listen_group_delete_user',
+
+        );
     }
 
 	public function __construct(
@@ -56,6 +59,22 @@ class createuser_listener implements EventSubscriberInterface
 	{
 		//no check here, we suppose the user was allowed to be created
 		$this->bridge_user->update_wp_user($event['user_row']);
+	}
+
+
+	public function listen_group_add_user($event)
+	{
+    //$group_id, $group_name, $pending, $user_id_ary, $username_ary
+		//no check here, we suppose the user was allowed to be created
+		$this->bridge_user->sync_users($event['user_id_ary']);
+	}
+
+
+	public function listen_group_delete_user($event)
+	{
+    //$group_id, $group_name, $user_id_ary, $username_ary
+		//no check here, we suppose the user was allowed to be created
+		$this->bridge_user->sync_users($event['user_id_ary']);
 	}
 
 
