@@ -56,7 +56,7 @@ $lang = array_merge($lang, array(
 	'SETTINGS_SUCCESS'		=> 'Les options ont été mises à jour avec succes',
 	'WP_ASSOCIATED_ROLE'	=> 'Association manuelle des roles',
 	'WP_MANUAL_SYNC' => 'Association manuelle',
-	'WP_EXSTING_USERNAME' => 'Pseudo d\'utilisateur wordpress existant',
+	'WP_EXISTING_USERNAME' => 'Pseudo d\'utilisateur wordpress existant',
 	'WP_NEW_USERNAME' =>'Nouvel utilisateur wordpress',
 	'WP_USERNAME' => 'Utilisateur phpbb'
 ));
