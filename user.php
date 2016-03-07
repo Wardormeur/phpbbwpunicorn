@@ -32,8 +32,12 @@ class user{
 		/*Require WP includes*/
 		$path_to_wp = $config['phpbbwpunicorn_wp_path'];
 		define( 'WP_USE_THEMES', FALSE );
-		define( 'SHORTINIT', TRUE );
+		if(!defined('SHORTINIT'))
+		{
+			define( 'SHORTINIT', TRUE );
+		}
 
+		//TODO : check active as this is instanciated on the plugin activation
 		$this->request->enable_super_globals();//Gosh.. WP.
 		require_once( $path_to_wp.'/wp-load.'.$phpEx );
 
@@ -90,27 +94,29 @@ class user{
 	public function create_wp_user($localuser)
 	{
 		$this->request->enable_super_globals();//Gosh.. WP.
-
 		//Init data
 		$userdata['user_login'] =  $localuser['username'];
 		$userdata['user_nicename'] =  $this->sanitize_username($localuser['username_clean']);
 		$userdata['display_name'] =  $localuser['username'];
 		$userdata['user_pass'] = wp_generate_password();
 		$userdata['role'] = $this->get_role($localuser);
-		$this->prepare_wp_user_array ($localuser,$userdata);
+		$userdata['role'] = $this->handle_extra_roles($userdata['role']);
+		if(!is_null($userdata['role'])){
+			$this->prepare_wp_user_array ($localuser,$userdata);
 
-		//wp_insert_user https://codex.wordpress.org/Function_Reference/wp_insert_user
-		//wp_insert_user doesnt apply role on creation, only update; thx doc not saying that
-		$wpuserid = wp_insert_user($userdata);
-		if(!is_wp_error($wpuserid)){
-			wp_update_user( array ('ID' => $wpuserid, 'role' => $userdata['role'] ) ) ;
+			//wp_insert_user https://codex.wordpress.org/Function_Reference/wp_insert_user
+			//wp_insert_user doesnt apply role on creation, only update; thx doc not saying that
+			$wpuserid = wp_insert_user($userdata);
+			if(!is_wp_error($wpuserid)){
+				wp_update_user( array ('ID' => $wpuserid, 'role' => $userdata['role'] ) ) ;
 
-			//Add reference to our phpbb table
-			$sql = "UPDATE ".USERS_TABLE. " SET wordpress_id = $wpuserid WHERE user_id = {$localuser['user_id']}";
-			$this->db->sql_query($sql);
-		}
-		else{
-			$this->errors['users'][] = $localuser['username'];
+				//Add reference to our phpbb table
+				$sql = "UPDATE ".USERS_TABLE. " SET wordpress_id = $wpuserid WHERE user_id = {$localuser['user_id']}";
+				$this->db->sql_query($sql);
+			}
+			else{
+				$this->errors['users'][] = $localuser['username'];
+			}
 		}
 		$this->request->disable_super_globals();//Gosh.. WP.
 
@@ -127,8 +133,8 @@ class user{
 		$role = $this->config['phpbbwpunicorn_wp_default_role'];
 		//TODO: this actually shows a bad design, requiring me to loop over roles whereas a bi-directionnal array could have mesaved from that
 		//stock every role into a single multi dim array?
-		$potential_roles[] = $role?$role:[];
-		$roles = new \WP_Roles();
+		$potential_roles[] = !empty($role) ? $role :[];
+		$roles = $this->get_roles();
 		$user_groups =  group_memberships(false,$localuser['user_id']);
 		//We default the returned role to the config's default one
 		$selected_role = $role;
@@ -150,8 +156,16 @@ class user{
 				}
 			}
 			//Which one are we supposed to return? Lol. first of order per ID Desc?
-			$selected_role = $potential_roles[count($potential_roles)-1];
+			$nb_possibilities = count($potential_roles);
+			//if we had an user group which is not associated with anything
+			if($nb_possibilities > 1){
+				$selected_role = $potential_roles[$nb_possibilities-1];
+			}else{
+				//reuse the default value of $role
+			}
+
 		}
+
 
 		return $selected_role;
 	}
@@ -170,16 +184,21 @@ class user{
 	public function update_wp_user($localuser, $wpuser)
 	{
 		$this->request->enable_super_globals();//Gosh.. WP
-
 		$wpuser = $this->prepare_wp_user_array($localuser, $wpuser);
 		$wpuser['role'] = $this->get_role($localuser);
-		//We restrict to update the role to avoid triggering email for pwd ie
-		wp_update_user( array ('ID' => $wpuser['ID'], 'role' => $wpuser['role'] ) ) ;
-
+		$wpuser['role'] = $this->handle_extra_roles($wpuser['role'], false);
+		if(!is_null($wpuser['role'])){
+			//We restrict to update the role to avoid triggering email for pwd ie
+			wp_update_user( array ('ID' => $wpuser['ID'], 'role' => $wpuser['role'] ) ) ;
+		}else{
+			//We delete the user and reassign all articles to the user 1 of WP, we expect it to be the account creating the WP, and so , the administrator
+			//Jut to be sure, update the reference to our phpbb table
+			wp_delete_user($wpuser['ID'], 1);
+			$wpuser['ID'] = 'NULL';
+		}
 		//Jut to be sure, update the reference to our phpbb table
-		$sql = "UPDATE ".USERS_TABLE. " SET wordpress_id =  {$wpuser['ID']} WHERE user_id = {$localuser['user_id']}";
+		$sql = "UPDATE ".USERS_TABLE. " SET wordpress_id = ".$wpuser['ID']." WHERE user_id =".$localuser['user_id'];
 		$this->db->sql_query($sql);
-
 		$this->request->disable_super_globals();//Gosh.. WP.
 	}
 
@@ -187,6 +206,7 @@ class user{
 	 * function to resynchronize every field of either every user, or a selected list; into WP
 	 * @param  [array] $user_id_ary [selected list of users]
 	 */
+	 //TODO : support sync by username ? unsafe/recovery
 	public function sync_users($user_id_ary = null){
 		//By default take every user
 		//restrict to "normal" users
@@ -209,18 +229,22 @@ class user{
 			//yes, i know, im requesting twice the user, but fuck it, im lazy.
 			//The less SQL and the more core function, the more robust?
 			$phpbbuser = $this->user_loader->get_user($user['user_id'], true);
-			if($user['wordpress_id'] == null){
+			if(empty($user['wordpress_id'])){
 				// !username_exists($phpbbuser['username'])  &&
 				//the function to check if an user exists are having, again, the same name than the phpbb one's.
 				try{
 					$this->create_wp_user($phpbbuser);
 				}catch(\Exception $e){
 					//Just to be sure we don't break the loop
+					var_dump('not supposed to happen');
 				}
 			}else{
 				//lets be sure it's updated
 				$wpuser = $this->get_wp_user($user['wordpress_id']);
-				$this->update_wp_user($phpbbuser,$wpuser->to_array());
+				if($wpuser !== false){
+					$wp_array = $wpuser->to_array();
+					$this->update_wp_user($phpbbuser, $wp_array);
+				}
 			}
 		}
 		$this->check_errors();
@@ -231,6 +255,24 @@ class user{
 	{
 		return get_user_by( $slug, $data );
 	}
+
+	/**
+	 * Return a phpbb user from username
+	 * @param  [string] $username [clean username used to search the user]
+	 * @return [object]           [the phpbbUser]
+	 */
+	public function get_phpbb_user_by_username($username){
+			$ids = null;
+			$usernames = [$username];
+			$return = false;
+			user_get_id_name($ids, $usernames , false);
+		if(sizeof($ids)){
+				$return = $this->user_loader->get_user($ids[0], false);
+				$return['user_id'] = $ids[0];
+		}
+			return $return;
+	}
+
 
   /**
    * Compatible function for sanitizing username between WP&PHPBB
@@ -249,17 +291,6 @@ class user{
    * @param  [String] $username [description]
    * @return [PHPBBUser]           [description]
    */
-	public function get_phpbb_user_by_username($username){
-		$ids = null;
-		$usernames = [$username];
-		$return = false;
-		user_get_id_name($ids, $usernames , false);
-		if(sizeof($ids) === 1){
-			$return = $this->user_loader->get_user($ids[0], false);
-			$return['user_id'] = $ids[0];
-		}
-		return $return;
-	}
 
   /**
    * Check errors returned when doing sync
@@ -279,9 +310,29 @@ class user{
 	 * @return [WPRole] [description]
 	 */
 	public function get_roles(){
-		return new \WP_Roles();
+		$wp_roles = new \WP_Roles();
+		//TODO : translation support
+		$wp_roles->roles["none"] = array("name"=>"None");
+		$wp_roles->roles["no-sync"] = array("name"=>"No-sync");
+		return $wp_roles;
 	}
 
+  /**
+   * return appropriate values to be used for the sync script
+   * @param  [type] $role [description]
+   * @param  [type] $soft [description]
+   * @return [type]       [description]
+   */
+	private function handle_extra_roles($role, $soft = false){
+		if($role=='none' || $role == 'no-sync' && $soft === true){
+			$role='';
+		}
+
+		if($role=='no-sync' && $soft === false){
+			$role = null;
+		}
+		return $role;
+	}
 
 }
 ?>

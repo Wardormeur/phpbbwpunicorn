@@ -139,26 +139,29 @@ class phpbbwpunicorn_module
 			}
 		}
 
+		//Manual attribution of a username to another
 		if($do_manual_sync && $this->active){
-
 				$phpbbuser = $this->bridge->get_phpbb_user_by_username($sync_phpbb_username);
 			if($phpbbuser){
+				//Create a new username
 				if($sync_wp_new_username){
 					$phpbbuser['username'] = $sync_wp_new_username;
 					$phpbbuser['username_clean'] = $this->bridge->sanitize_username($sync_wp_new_username);
-					var_dump($phpbbuser);
 					$this->bridge->create_wp_user($phpbbuser);
 				}else
+				//Or sync with an existing one
 				if($sync_wp_existing_username){
-					$wpuser = $this->bridge->get_wp_user($sync_wp_existing_username, 'slug');
-					$this->bridge->update_wp_user($phpbbuser, $wpuser->to_array());
+					$wpuser = $this->bridge->get_wp_user($this->bridge->sanitize_username($sync_wp_existing_username), 'slug');
+					if($wpuser !== false){
+						$this->bridge->update_wp_user($phpbbuser, $wpuser->to_array());
+					}else{
+						trigger_error("WP user not found for username $sync_wp_existing_username while manually syncing ", E_USER_WARNING);
+					}
 				}
 			}else{
 				trigger_error("PHPBB user not found for username $sync_phpbb_username while manually syncing ", E_USER_WARNING);
 			}
 		}
-
-
 		if(!$this->path_valids()){
 			trigger_error($this->user->lang['FORM_INVALID'] . adm_back_link($this->u_action), E_USER_WARNING);
 		} else {
@@ -177,17 +180,19 @@ class phpbbwpunicorn_module
 			$roles = $this->bridge->get_roles();
 			$this->request->disable_super_globals();
 
+			//Build default role select
 			foreach($roles->roles as $role=>$roledata){
 				$html_roles = $html_roles.'<option value="'.$role.'" '.($role == $this->config['phpbbwpunicorn_wp_default_role']?'selected':'').'>'.$roledata['name'].'</option>';
 			}
 		}
-			$this->template->assign_vars(array(
-				'PATH'	=> $this->config['phpbbwpunicorn_wp_path'],
-				'CACHE'	=> $this->config['phpbbwpunicorn_wp_cache'] ? date('c',$this->config['phpbbwpunicorn_wp_cache']) : 'Never',
-				'RESYNC'	=> $this->config['phpbbwpunicorn_wp_resync'] ? date('c',$this->config['phpbbwpunicorn_wp_resync']) : 'Never' ,
-				'DEFAULT_ROLE'	=> $html_roles,
-			));
-			//Prepare block
+
+		$this->template->assign_vars(array(
+			'PATH'	=> $this->config['phpbbwpunicorn_wp_path'],
+			'CACHE'	=> $this->config['phpbbwpunicorn_wp_cache'] ? date('c',$this->config['phpbbwpunicorn_wp_cache']) : 'Never',
+			'RESYNC'	=> $this->config['phpbbwpunicorn_wp_resync'] ? date('c',$this->config['phpbbwpunicorn_wp_resync']) : 'Never' ,
+			'DEFAULT_ROLE'	=> $html_roles,
+		));
+		//Prepare block
 
 		if($this->active){
 			foreach($roles->roles as $key_group=>$group)
@@ -286,7 +291,6 @@ class phpbbwpunicorn_module
 		return false;
 	}
 
-
 	 /**
 	  * Check if generated files exists
 	  * @return [Boolean] [true/false]
@@ -306,6 +310,4 @@ class phpbbwpunicorn_module
 			}
 			return false;
 		}
-
-
 }

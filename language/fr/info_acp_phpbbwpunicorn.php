@@ -50,7 +50,7 @@ $lang = array_merge($lang, array(
 	'WP_CACHE_INFO'	=> '(shoud be done if the creation of user trigger an error, or if you changed the wordpress path)',
 	'WP_SYNC_AVATAR'			=> 'Use phpbb avatar for wordpress (will resync every user)',
 
-	'WP_RESYNC'			=> 'Resynchronize every user (care with article ownership..)',
+	'WP_RESYNC'			=> 'Resynchronize every user',
 	'WP_DEFAULT_ROLE'			=> 'Default role used in Wordpress (overwriting Wordpress default)',
 	'SETTINGS_ERROR'		=> 'There was an error saving your settings. Please submit the back trace with your error report.',
 	'SETTINGS_SUCCESS'		=> 'Les options ont été mises à jour avec succes',
